@@ -142,10 +142,25 @@
     "unattend": {
       "type": "object",
       "description": "Намеренно тонкий. Только то, без чего установка не пройдёт без человека. Всё остальное — работа Atlas и агента: Atlas требует чистую немодифицированную систему, а толстый unattend гниёт при каждой смене билда.",
-      "required": ["locale", "timezone", "accounts"],
+      "required": ["uiLanguage", "systemLocale", "userLocale", "timezone", "accounts"],
       "additionalProperties": false,
       "properties": {
-        "locale":       { "type": "string", "pattern": "^[a-z]{2}-[A-Z]{2}$" },
+        "uiLanguage": {
+          "type": "string", "pattern": "^[a-z]{2}-[A-Z]{2}$",
+          "description": "Язык интерфейса Windows."
+        },
+        "systemLocale": {
+          "type": "string", "pattern": "^[a-z]{2}-[A-Z]{2}$",
+          "description": "Системная локаль: кодовая страница ANSI для программ без поддержки Юникода. Задаётся отдельно от языка интерфейса намеренно — русский интерфейс на системной локали en-US распространённый и осознанный выбор, меняющий поведение старых программ."
+        },
+        "userLocale": {
+          "type": "string", "pattern": "^[a-z]{2}-[A-Z]{2}$",
+          "description": "Форматы даты, времени, чисел и валюты."
+        },
+        "geoLocation": {
+          "type": ["integer", "null"], "minimum": 0, "default": null,
+          "description": "GeoID страны для региона устройства (203 — Россия). null — не задавать."
+        },
         "keyboards":    { "type": "array", "items": { "type": "string" }, "minItems": 1,
                           "examples": [["0409:00000409", "0419:00000419"]] },
         "timezone":     { "type": "string", "examples": ["Russian Standard Time", "UTC"] },

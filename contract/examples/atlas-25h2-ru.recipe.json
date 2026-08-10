@@ -48,7 +48,10 @@
   },
 
   "unattend": {
-    "locale": "ru-RU",
+    "uiLanguage": "ru-RU",
+    "systemLocale": "en-US",
+    "userLocale": "en-US",
+    "geoLocation": 203,
     "keyboards": ["0409:00000409", "0419:00000419"],
     "timezone": "Russian Standard Time",
     "computerName": null,
