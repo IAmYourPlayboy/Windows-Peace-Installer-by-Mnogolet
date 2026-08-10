@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://razvert.dev/schema/recipe-1.json",
+  "title": "Razvert Recipe",
+  "description": "Единый декларативный контракт развёртывания Windows. Читается всеми тремя компонентами: Studio (собирает носитель), Pe (разворачивает образ), Agent (доводит систему после установки). Всё, что можно выразить здесь, не должно быть зашито в код.",
+  "type": "object",
+  "required": ["schemaVersion", "meta", "source", "target", "unattend"],
+  "additionalProperties": false,
+
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Ссылка на эту схему. Нужна только для автодополнения в редакторах, движком игнорируется."
+    },
+
+    "schemaVersion": {
+      "const": 1,
+      "description": "Версия схемы. Меняется только при несовместимых изменениях; миграция рецептов — задача Studio."
+    },
+
+    "meta": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name":        { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "author":      { "type": "string" },
+        "revision":    { "type": "integer", "minimum": 1, "default": 1 }
+      }
+    },
+
+    "source": {
+      "type": "object",
+      "description": "Откуда берётся образ Windows. Сам ISO никогда не хранится в репозитории — только ссылка и хеш.",
+      "required": ["windows"],
+      "additionalProperties": false,
+      "properties": {
+        "windows": {
+          "type": "object",
+          "required": ["edition", "version", "language", "iso"],
+          "additionalProperties": false,
+          "properties": {
+            "edition":  { "enum": ["Pro", "Pro for Workstations", "Enterprise", "Education"],
+                          "description": "Home не поддерживается: Atlas на нём не ставится." },
+            "version":  { "type": "string", "pattern": "^\\d{2}H[12]$", "examples": ["25H2", "24H2"] },
+            "arch":     { "enum": ["x64", "arm64"], "default": "x64" },
+            "language": { "type": "string", "pattern": "^[a-z]{2}-[A-Z]{2}$", "examples": ["ru-RU", "en-US"] },
+            "iso":      { "$ref": "#/$defs/fetchable" },
+            "imageName": {
+              "type": "string",
+              "description": "Имя образа внутри install.wim/esd (напр. 'Windows 11 Pro'). Надёжнее индекса: индексы разъезжаются между билдами."
+            }
+          }
+        }
+      }
+    },
+
+    "target": {
+      "type": "object",
+      "description": "Куда и как разворачиваем. Пасс windowsPE в unattend.xml не используется — разметку и загрузчик делает Razvert.Pe.",
+      "required": ["firmware", "diskSelection", "layout"],
+      "additionalProperties": false,
+      "properties": {
+        "firmware": {
+          "enum": ["uefi"],
+          "description": "Пока только UEFI+GPT. Значение вынесено в схему, чтобы 'bios' добавлялся без изменения формы рецепта."
+        },
+
+        "diskSelection": {
+          "type": "object",
+          "description": "Диск НИКОГДА не адресуется порядковым номером: он нестабилен между загрузками. Только отпечаток или явный выбор человеком.",
+          "required": ["mode"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": ["interactive", "auto", "pinned"],
+              "description": "interactive — человек выбирает в UI; auto — по правилу; pinned — по конкретному отпечатку известной машины."
+            },
+            "autoRule":  { "$ref": "#/$defs/diskRule" },
+            "pinned":    { "$ref": "#/$defs/diskFingerprint" },
+            "excludeBootMedia": {
+              "type": "boolean", "default": true,
+              "description": "Жёстко исключить носитель, с которого загрузился WinPE. Отключать нельзя без веской причины."
+            },
+            "excludeRemovable": { "type": "boolean", "default": true }
+          },
+          "allOf": [
+            { "if":   { "properties": { "mode": { "const": "auto" } }, "required": ["mode"] },
+              "then": { "required": ["autoRule"] } },
+            { "if":   { "properties": { "mode": { "const": "pinned" } }, "required": ["mode"] },
+              "then": { "required": ["pinned"] } }
+          ]
+        },
+
+        "layout": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "espMB": {
+              "type": "integer", "minimum": 100, "maximum": 2048, "default": 300,
+              "description": "EFI System Partition, FAT32. 100 МБ — минимум Microsoft, 300 — запас под мультизагрузку и обновления прошивочных загрузчиков."
+            },
+            "msrMB": { "type": "integer", "minimum": 16, "maximum": 128, "default": 16 },
+            "recoveryMB": {
+              "type": "integer", "minimum": 750, "maximum": 4096, "default": 1024,
+              "description": "WinRE. Меньше ~750 МБ свободного места ломает обновления WinRE (см. KB5034441), поэтому запас взят с избытком."
+            },
+            "recoveryPlacement": {
+              "enum": ["end", "afterMsr"], "default": "end",
+              "description": "end — как делает сам Windows Setup, максимальная совместимость. afterMsr — раздел Windows становится последним и его можно расширить при переносе на диск большего объёма."
+            },
+            "windowsSizeGB": {
+              "type": ["integer", "null"], "minimum": 40, "default": null,
+              "description": "null — занять всё оставшееся место."
+            }
+          }
+        },
+
+        "bootCleanup": {
+          "type": "object",
+          "description": "Причина бага «поставил 11, а грузится старая 10». Windows Setup пишет загрузчик в первый попавшийся ESP и не трогает порядок загрузки в NVRAM, поэтому прошивка продолжает грузить прежнюю систему.",
+          "additionalProperties": false,
+          "properties": {
+            "removeStaleFirmwareEntries": {
+              "type": "boolean", "default": true,
+              "description": "Удалить из NVRAM записи, указывающие на несуществующие или затёртые загрузчики."
+            },
+            "setFirstBootEntry": {
+              "type": "boolean", "default": true,
+              "description": "Поставить новую запись первой в порядке загрузки."
+            },
+            "wipeOtherEsps": {
+              "type": "boolean", "default": false,
+              "description": "ОПАСНО. Затирает ESP на прочих дисках. Ломает мультизагрузку с Linux. По умолчанию выключено, включается только осознанно."
+            }
+          }
+        }
+      }
+    },
+
+    "unattend": {
+      "type": "object",
+      "description": "Намеренно тонкий. Только то, без чего установка не пройдёт без человека. Всё остальное — работа Atlas и агента: Atlas требует чистую немодифицированную систему, а толстый unattend гниёт при каждой смене билда.",
+      "required": ["locale", "timezone", "accounts"],
+      "additionalProperties": false,
+      "properties": {
+        "locale":       { "type": "string", "pattern": "^[a-z]{2}-[A-Z]{2}$" },
+        "keyboards":    { "type": "array", "items": { "type": "string" }, "minItems": 1,
+                          "examples": [["0409:00000409", "0419:00000419"]] },
+        "timezone":     { "type": "string", "examples": ["Russian Standard Time", "UTC"] },
+        "computerName": { "type": ["string", "null"], "default": null,
+                          "description": "null — сгенерировать случайное имя, как это делает Windows." },
+        "accounts": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "group", "passwordMode"],
+            "additionalProperties": false,
+            "properties": {
+              "name":         { "type": "string", "minLength": 1 },
+              "group":        { "enum": ["Administrators", "Users"] },
+              "passwordMode": {
+                "enum": ["none", "promptAtDeploy", "literal"],
+                "description": "literal кладёт пароль в открытом виде в unattend.xml на носителе — допустимо только для одноразовых стендов."
+              },
+              "password":     { "type": ["string", "null"], "default": null },
+              "autoLogon":    { "type": "boolean", "default": false }
+            }
+          }
+        },
+        "skipOobe":             { "type": "boolean", "default": true },
+        "bypassMsAccount":      { "type": "boolean", "default": true },
+        "skipPrivacyPrompts":   { "type": "boolean", "default": true },
+        "bypassHardwareChecks": {
+          "type": "boolean", "default": false,
+          "description": "Обход проверок TPM 2.0 / Secure Boot / RAM. Нужен на старом железе; на поддерживаемом лучше не включать."
+        }
+      }
+    },
+
+    "drivers": {
+      "type": "object",
+      "description": "Драйверы внедряются офлайн в образ до первой загрузки. Это надёжнее, чем ставить их потом, и снимает проблему «нет сети после установки».",
+      "additionalProperties": false,
+      "properties": {
+        "peDrivers": {
+          "type": "array", "items": { "type": "string" }, "default": [],
+          "description": "Пути к папкам с .inf, внедряемым в boot.wim. Нужны, когда WinPE из ADK не видит новый NVMe или сетевую карту."
+        },
+        "osDrivers": {
+          "type": "array", "items": { "type": "string" }, "default": [],
+          "description": "Внедряются в применённый образ через Dism /Image /Add-Driver /Recurse."
+        }
+      }
+    },
+
+    "postInstall": {
+      "type": "object",
+      "description": "Упорядоченный список шагов, исполняемый Razvert.Agent в установленной системе. Шаги идемпотентны и переживают перезагрузки. Новая возможность = новый тип шага, а не правка движка.",
+      "additionalProperties": false,
+      "properties": {
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/step" }, "default": [] }
+      }
+    },
+
+    "safety": {
+      "type": "object",
+      "description": "Инструмент форматирует диски на чужих машинах. Значения по умолчанию выбраны в пользу осторожности, а не удобства.",
+      "additionalProperties": false,
+      "properties": {
+        "dryRun": {
+          "type": "boolean", "default": false,
+          "description": "Пройти весь путь и показать план, ничего не записывая. Основной режим отладки."
+        },
+        "requireTypedConfirmation": {
+          "type": "boolean", "default": true,
+          "description": "Перед разметкой человек вручную вводит модель целевого диска. Защита от «промахнулся мимо карточки»."
+        },
+        "onDataVolumesFound": {
+          "enum": ["abort", "confirm", "ignore"], "default": "confirm",
+          "description": "Поведение при обнаружении на целевом диске томов с пользовательскими данными."
+        },
+        "onOtherWindowsFound": {
+          "enum": ["abort", "confirm", "ignore"], "default": "confirm",
+          "description": "Поведение при обнаружении другой установленной Windows на прочих дисках."
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "fetchable": {
+      "type": "object",
+      "description": "Внешний файл. Хеш обязателен: он даёт воспроизводимость сборки и защиту от подмены на пути до пользователя.",
+      "required": ["sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "url":     { "type": "string", "format": "uri" },
+        "path":    { "type": "string", "description": "Локальный путь, если файл уже скачан вручную." },
+        "sha256":  { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      },
+      "anyOf": [{ "required": ["url"] }, { "required": ["path"] }]
+    },
+
+    "diskFingerprint": {
+      "type": "object",
+      "description": "Стабильная идентификация диска. Порядковый номер сознательно отсутствует.",
+      "required": ["serialNumber"],
+      "additionalProperties": false,
+      "properties": {
+        "serialNumber": { "type": "string", "minLength": 1 },
+        "model":        { "type": "string" },
+        "sizeBytes":    { "type": "integer", "minimum": 1 },
+        "busType":      { "$ref": "#/$defs/busType" }
+      }
+    },
+
+    "busType":   { "enum": ["NVMe", "SATA", "SAS", "RAID", "USB", "SCSI", "ATA", "Unknown"] },
+    "mediaType": { "enum": ["SSD", "HDD", "SCM", "Unspecified"] },
+
+    "diskRule": {
+      "type": "object",
+      "description": "Правило автовыбора. Сначала применяются фильтры, затем pick к тому, что осталось.",
+      "additionalProperties": false,
+      "properties": {
+        "busType":   { "type": "array", "items": { "$ref": "#/$defs/busType" } },
+        "mediaType": { "type": "array", "items": { "$ref": "#/$defs/mediaType" } },
+        "minSizeGB": { "type": "integer", "minimum": 1, "default": 60 },
+        "maxSizeGB": { "type": ["integer", "null"], "default": null },
+        "pick": {
+          "enum": ["onlyMatch", "largest", "smallest", "fastestBus"],
+          "default": "onlyMatch",
+          "description": "onlyMatch — если под фильтр попал не ровно один диск, остановиться с ошибкой. Самый безопасный вариант: лучше упасть, чем угадать."
+        }
+      }
+    },
+
+    "stepBase": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id":      { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$",
+                     "description": "Уникален в пределах рецепта. Используется как ключ в state.json при возобновлении после перезагрузки." },
+        "type":    { "type": "string" },
+        "enabled": { "type": "boolean", "default": true },
+        "onError": { "enum": ["abort", "continue", "retry"], "default": "abort" },
+        "retries": { "type": "integer", "minimum": 0, "maximum": 5, "default": 0 },
+        "reboot":  { "enum": ["never", "ifRequested", "always"], "default": "ifRequested" },
+        "timeoutMinutes": { "type": "integer", "minimum": 1, "default": 60 }
+      }
+    },
+
+    "step": {
+      "allOf": [{ "$ref": "#/$defs/stepBase" }],
+      "oneOf": [
+        {
+          "title": "drivers.install",
+          "properties": { "type": { "const": "drivers.install" } }
+        },
+        {
+          "title": "windowsUpdate.converge",
+          "description": "Крутить Windows Update до тех пор, пока цикл не перестанет находить обновления. Atlas требует обновлённую систему до применения плейбука.",
+          "properties": {
+            "type":      { "const": "windowsUpdate.converge" },
+            "maxCycles": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
+            "includeDrivers": { "type": "boolean", "default": true },
+            "includeStoreApps": { "type": "boolean", "default": true }
+          }
+        },
+        {
+          "title": "atlas.apply",
+          "description": "AME Wizard не имеет документированного CLI, поэтому стратегия выбирается явно и деградирует мягко.",
+          "properties": {
+            "type": { "const": "atlas.apply" },
+            "strategy": {
+              "enum": ["isoInjection", "wizardUi", "wizardAssisted"],
+              "description": "isoInjection — официальный автоматический путь, только Win11 25H2 и Playbook 0.5.0+. wizardUi — прокликивание через UIAutomation, ломается при обновлении их интерфейса. wizardAssisted — агент готовит всё и просит человека нажать несколько кнопок."
+            },
+            "fallbackStrategy": { "enum": ["wizardUi", "wizardAssisted", "skip"], "default": "wizardAssisted" },
+            "playbook": { "$ref": "#/$defs/fetchable" },
+            "wizard":   { "$ref": "#/$defs/fetchable" },
+            "options":  { "type": "object", "additionalProperties": { "type": ["string", "boolean", "number"] },
+                          "description": "Выборы внутри плейбука Atlas, если стратегия позволяет их задать заранее." }
+          },
+          "required": ["strategy"]
+        },
+        {
+          "title": "windhawk.install",
+          "properties": {
+            "type": { "const": "windhawk.install" },
+            "portable": { "type": "boolean", "default": false },
+            "mods": {
+              "type": "array", "default": [],
+              "items": {
+                "type": "object",
+                "required": ["id"],
+                "additionalProperties": false,
+                "properties": {
+                  "id":       { "type": "string", "examples": ["taskbar-clock-customization"] },
+                  "settings": { "type": "object", "additionalProperties": true }
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "apps.install",
+          "properties": {
+            "type":     { "const": "apps.install" },
+            "manager":  { "enum": ["winget"], "default": "winget" },
+            "packages": { "type": "array", "items": { "type": "string" },
+                          "examples": [["Mozilla.Firefox", "7zip.7zip"]] }
+          }
+        },
+        {
+          "title": "registry.apply",
+          "properties": {
+            "type":  { "const": "registry.apply" },
+            "files": { "type": "array", "items": { "type": "string" },
+                       "description": "Пути к .reg относительно каталога полезной нагрузки." }
+          }
+        },
+        {
+          "title": "script.run",
+          "description": "Аварийный люк для того, что не покрыто типизированными шагами. Если сюда попадает что-то повторяющееся — значит нужен новый тип шага.",
+          "properties": {
+            "type":  { "const": "script.run" },
+            "shell": { "enum": ["powershell", "cmd"], "default": "powershell" },
+            "path":  { "type": "string" },
+            "args":  { "type": "array", "items": { "type": "string" }, "default": [] }
+          },
+          "required": ["path"]
+        }
+      ]
+    }
+  }
+}
