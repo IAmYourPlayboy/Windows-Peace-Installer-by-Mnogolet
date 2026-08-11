@@ -9,6 +9,14 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+
+    <!--
+      Разбор JSON нужен только тестам: они проверяют, что журнал пишет
+      действительно разбираемый JSON, а не строку, похожую на него.
+      В WindowsPeace.Core этой зависимости нет и не будет — там своя
+      сериализация, чтобы под net48 ничего не тянуть.
+    -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
