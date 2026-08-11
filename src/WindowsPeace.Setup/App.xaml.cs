@@ -1,25 +1,42 @@
-﻿using System.Windows;
+﻿using System;
+using System.Collections.Generic;
+using System.Windows;
+using WindowsPeace.Core.Diagnostics;
+using WindowsPeace.Core.Storage;
+using WindowsPeace.Setup.Pages;
+using WindowsPeace.Setup.Shell;
 
 namespace WindowsPeace.Setup;
 
-/// <summary>
-/// Точка входа приложения.
-/// На этом шаге окна ещё нет: оболочка мастера появляется в задаче 10 плана.
-/// До тех пор приложение говорит об этом вслух и завершается — висеть
-/// невидимым процессом ему запрещено, см. docs/ARCHITECTURE.md, раздел 9.
-/// </summary>
 public partial class App : Application
 {
+    private JsonLinesOperationLog? _log;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        MessageBox.Show(
-            "Оболочка мастера ещё не собрана: она появляется в задаче 10 плана шага А.",
-            "Windows Peace",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        _log = new JsonLinesOperationLog(JsonLinesOperationLog.DefaultPath(AppContext.BaseDirectory));
 
-        Shutdown();
+        var probe = new RealFileSystemProbe();
+
+        var diskPicker = new DiskPickerViewModel(
+            new WmiDiskEnumerator(_log),
+            new FileSystemContentInspector(probe),
+            probe);
+
+        var navigator = new WizardNavigator(new List<IWizardPage>
+        {
+            diskPicker,
+            new PlaceholderViewModel(),
+        });
+
+        new ShellWindow { DataContext = new ShellViewModel(navigator) }.Show();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _log?.Dispose();
+        base.OnExit(e);
     }
 }

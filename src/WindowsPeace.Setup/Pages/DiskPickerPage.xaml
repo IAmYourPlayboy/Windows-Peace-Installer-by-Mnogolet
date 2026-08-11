@@ -1,0 +1,73 @@
+﻿<UserControl x:Class="WindowsPeace.Setup.Pages.DiskPickerPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--
+            IsSynchronizedWithCurrentItem="False" обязателен. По умолчанию список
+            синхронизирует выделение с «текущим элементом» коллекции, а текущий —
+            первый. Экран открывался бы с уже выбранным диском и включённой кнопкой
+            «Далее», хотя человек ничего не выбирал. Спека требует обратного:
+            пока не выбрано ничего, дальше идти нельзя.
+        -->
+        <ListView Grid.Row="0" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  IsSynchronizedWithCurrentItem="False">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="IsEnabled" Value="{Binding IsSelectable}" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Имя" Width="360">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="{Binding Indent}" />
+                                    <TextBlock Text="{Binding Name}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="Объём" Width="110" DisplayMemberBinding="{Binding Size}" />
+                    <GridViewColumn Header="Свободно" Width="110" DisplayMemberBinding="{Binding Free}" />
+                    <GridViewColumn Header="Тип" Width="150" DisplayMemberBinding="{Binding Type}" />
+                    <GridViewColumn Header="Состояние" Width="260" DisplayMemberBinding="{Binding Note}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <WrapPanel Grid.Row="1" Margin="0,12,0,0">
+            <Button Content="Обновить" Command="{Binding RefreshCommand}" Margin="0,0,12,0" Padding="10,4" />
+            <Button Content="Создать" IsEnabled="{Binding CanCreate}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="Удалить" IsEnabled="{Binding CanDelete}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="Форматировать" IsEnabled="{Binding CanFormat}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="Расширить" IsEnabled="{Binding CanExtend}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="Подробно" IsEnabled="{Binding CanShowDetails}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="Загрузить драйвер" Padding="10,4" Click="NotYet" />
+        </WrapPanel>
+
+        <TextBlock Grid.Row="2" Margin="0,12,0,0" Foreground="#B00020" TextWrapping="Wrap"
+                   Text="{Binding EnumerationError}" />
+
+        <ItemsControl Grid.Row="3" ItemsSource="{Binding Warnings}" Margin="0,12,0,0">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Grid.Row="4" Margin="0,12,0,0">
+            <TextBlock Text="{Binding DenialReason}" Foreground="#B00020" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding PlanSummary}" TextWrapping="Wrap" />
+        </StackPanel>
+    </Grid>
+</UserControl>
