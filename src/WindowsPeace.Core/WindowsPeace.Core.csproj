@@ -18,4 +18,14 @@
   <ItemGroup>
     <PackageReference Include="Roslynator.Analyzers" Version="4.12.4" PrivateAssets="all" />
   </ItemGroup>
+
+  <!--
+    Тестам нужен доступ к внутренним членам: содержимое раздела и отметка
+    загрузочного носителя проставляются извне модели, а не конструктором.
+  -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>WindowsPeace.Core.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>
