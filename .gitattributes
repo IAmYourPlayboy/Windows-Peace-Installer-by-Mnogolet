@@ -1,0 +1,15 @@
+# Перевод строки задаётся здесь, а не настройками машины разработчика.
+# Проект целиком под Windows, поэтому в рабочем каталоге везде CRLF.
+# Согласовано с .editorconfig (end_of_line = crlf).
+* text=auto eol=crlf
+
+# Двоичное содержимое git не должен трогать никогда.
+*.png binary
+*.jpg binary
+*.ico binary
+*.iso binary
+*.wim binary
+*.esd binary
+*.swm binary
+*.vhd binary
+*.vhdx binary
