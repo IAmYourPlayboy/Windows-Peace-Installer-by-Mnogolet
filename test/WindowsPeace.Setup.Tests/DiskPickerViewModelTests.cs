@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Pages;
 using Xunit;
@@ -15,6 +16,27 @@ internal sealed class FakeEnumerator : IDiskEnumerator
     public FakeEnumerator(DiskSnapshot snapshot) => _snapshot = snapshot;
 
     public DiskSnapshot Enumerate(CancellationToken cancellationToken) => _snapshot;
+}
+
+/// <summary>
+/// Источник, который никогда не отвечает сам — только по отмене. Нужен, чтобы
+/// проверить правило из раздела 9 архитектуры: ни одной операции без предельного
+/// времени и без возможности прервать.
+/// </summary>
+internal sealed class NeverAnsweringEnumerator : IDiskEnumerator
+{
+    private readonly TaskCompletionSource<bool> _started =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task Started => _started.Task;
+
+    public DiskSnapshot Enumerate(CancellationToken cancellationToken)
+    {
+        _started.TrySetResult(true);
+        cancellationToken.WaitHandle.WaitOne();
+        cancellationToken.ThrowIfCancellationRequested();
+        return new DiskSnapshot(Array.Empty<DiskInfo>(), null);
+    }
 }
 
 internal sealed class NoopInspector : IDiskContentInspector
@@ -52,54 +74,55 @@ public class DiskPickerViewModelTests
             partitions: list, freeSpaces: FreeSpaceCalculator.Calculate(size, list), probeError: null);
     }
 
-    private static DiskPickerViewModel Create(params DiskInfo[] disks)
+    private static async Task<DiskPickerViewModel> CreateAsync(params DiskInfo[] disks)
     {
         var model = new DiskPickerViewModel(
             new FakeEnumerator(new DiskSnapshot(disks, null)),
             new NoopInspector(),
             new EmptyFileSystem());
-        model.Refresh();
+
+        await model.RefreshAsync();
         return model;
     }
 
     [Fact]
-    public void Диски_попадают_в_список()
+    public async Task Диски_попадают_в_список()
     {
-        var model = Create(Disk("A", 500 * Gib), Disk("B", 1000 * Gib));
+        var model = await CreateAsync(Disk("A", 500 * Gib), Disk("B", 1000 * Gib));
 
         Assert.Equal(2, model.Rows.Count(r => r.Kind == RowKind.Disk));
     }
 
     [Fact]
-    public void Разделы_идут_строками_под_своим_диском()
+    public async Task Разделы_идут_строками_под_своим_диском()
     {
         var partition = new PartitionInfo(1, 1048576UL, 100 * Gib, PartitionKind.BasicData, 'C', false, false, null);
-        var model = Create(Disk("A", 500 * Gib, partitions: new[] { partition }));
+        var model = await CreateAsync(Disk("A", 500 * Gib, partitions: new[] { partition }));
 
         Assert.Equal(RowKind.Disk, model.Rows[0].Kind);
         Assert.Equal(RowKind.Partition, model.Rows[1].Kind);
     }
 
     [Fact]
-    public void Незанятое_пространство_показывается_отдельной_строкой()
+    public async Task Незанятое_пространство_показывается_отдельной_строкой()
     {
-        var model = Create(Disk("A", 500 * Gib));
+        var model = await CreateAsync(Disk("A", 500 * Gib));
 
         Assert.Contains(model.Rows, r => r.Kind == RowKind.FreeSpace);
     }
 
     [Fact]
-    public void Пока_ничего_не_выбрано_идти_дальше_нельзя()
+    public async Task Пока_ничего_не_выбрано_идти_дальше_нельзя()
     {
-        var model = Create(Disk("A", 500 * Gib));
+        var model = await CreateAsync(Disk("A", 500 * Gib));
 
         Assert.False(model.CanGoNext);
     }
 
     [Fact]
-    public void Выбор_допустимого_диска_разрешает_идти_дальше_и_строит_план()
+    public async Task Выбор_допустимого_диска_разрешает_идти_дальше_и_строит_план()
     {
-        var model = Create(Disk("A", 500 * Gib));
+        var model = await CreateAsync(Disk("A", 500 * Gib));
 
         model.Selected = model.Rows.First(r => r.Kind == RowKind.Disk);
 
@@ -108,9 +131,9 @@ public class DiskPickerViewModelTests
     }
 
     [Fact]
-    public void Выбор_запрещённого_диска_не_разрешает_идти_дальше_и_объясняет_причину()
+    public async Task Выбор_запрещённого_диска_не_разрешает_идти_дальше_и_объясняет_причину()
     {
-        var model = Create(Disk("A", 500 * Gib, isSystem: true));
+        var model = await CreateAsync(Disk("A", 500 * Gib, isSystem: true));
 
         model.Selected = model.Rows.First(r => r.Kind == RowKind.Disk);
 
@@ -119,10 +142,10 @@ public class DiskPickerViewModelTests
     }
 
     [Fact]
-    public void Кнопки_разделов_включаются_по_виду_выбранной_строки()
+    public async Task Кнопки_разделов_включаются_по_виду_выбранной_строки()
     {
         var partition = new PartitionInfo(1, 1048576UL, 100 * Gib, PartitionKind.BasicData, 'C', false, false, null);
-        var model = Create(Disk("A", 500 * Gib, partitions: new[] { partition }));
+        var model = await CreateAsync(Disk("A", 500 * Gib, partitions: new[] { partition }));
 
         model.Selected = model.Rows.First(r => r.Kind == RowKind.Partition);
         Assert.True(model.CanDelete);
@@ -134,16 +157,72 @@ public class DiskPickerViewModelTests
     }
 
     [Fact]
-    public void Сбой_перечисления_показывается_текстом_и_список_остаётся_пустым()
+    public async Task Сбой_перечисления_показывается_текстом_и_список_остаётся_пустым()
     {
         var model = new DiskPickerViewModel(
             new FakeEnumerator(DiskSnapshot.Failed("WMI недоступно")),
             new NoopInspector(),
             new EmptyFileSystem());
 
-        model.Refresh();
+        await model.RefreshAsync();
 
         Assert.Empty(model.Rows);
         Assert.Equal("WMI недоступно", model.EnumerationError);
+    }
+
+    [Fact]
+    public async Task Пока_опрос_идёт_он_помечен_идущим_и_повторно_не_запускается()
+    {
+        var enumerator = new NeverAnsweringEnumerator();
+        var model = new DiskPickerViewModel(enumerator, new NoopInspector(), new EmptyFileSystem());
+
+        var running = model.RefreshAsync();
+        await enumerator.Started;
+
+        Assert.True(model.IsBusy);
+        Assert.False(model.RefreshCommand.CanExecute(null));
+        Assert.True(model.CancelCommand.CanExecute(null));
+
+        await model.RefreshAsync();
+        Assert.True(model.IsBusy);
+
+        model.Cancel();
+        await running;
+    }
+
+    [Fact]
+    public async Task Отмена_прекращает_опрос_и_объясняет_это_словами()
+    {
+        var enumerator = new NeverAnsweringEnumerator();
+        var model = new DiskPickerViewModel(enumerator, new NoopInspector(), new EmptyFileSystem());
+
+        var running = model.RefreshAsync();
+        await enumerator.Started;
+
+        model.CancelCommand.Execute(null);
+        await running;
+
+        Assert.False(model.IsBusy);
+        Assert.Empty(model.Rows);
+        Assert.False(string.IsNullOrEmpty(model.EnumerationError));
+        Assert.Equal(string.Empty, model.StatusText);
+        Assert.True(model.RefreshCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Опрос_рассказывает_чем_занят_и_замолкает_по_окончании()
+    {
+        var enumerator = new NeverAnsweringEnumerator();
+        var model = new DiskPickerViewModel(enumerator, new NoopInspector(), new EmptyFileSystem());
+
+        var running = model.RefreshAsync();
+        await enumerator.Started;
+
+        Assert.False(string.IsNullOrEmpty(model.StatusText));
+
+        model.Cancel();
+        await running;
+
+        Assert.Equal(string.Empty, model.StatusText);
     }
 }

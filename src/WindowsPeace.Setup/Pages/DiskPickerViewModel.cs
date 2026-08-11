@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using WindowsPeace.Core.Diagnostics;
 using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
@@ -14,6 +15,11 @@ namespace WindowsPeace.Setup.Pages;
 /// <summary>
 /// Состояние экрана выбора диска. Решения о допустимости и предупреждениях
 /// принимает Core; здесь только показ и переключение доступности кнопок.
+///
+/// Опрос дисков уходит в отдельный поток. Это не украшение: раздел 9
+/// архитектуры запрещает состояние «крутится, и непонятно, живо ли оно».
+/// Опрос показывает, чем занят, допускает отмену и сам прекращается
+/// по истечении Timeouts.DiskEnumeration.
 /// </summary>
 public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 {
@@ -21,10 +27,14 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     private readonly IDiskContentInspector _inspector;
     private readonly IFileSystemProbe _probe;
 
+    private CancellationTokenSource? _cancellation;
+
     private DiskRowViewModel? _selected;
     private string _planSummary = string.Empty;
+    private string _statusText = string.Empty;
     private string? _denialReason;
     private string? _enumerationError;
+    private bool _isBusy;
     private IReadOnlyList<DiskInfo> _disks = Array.Empty<DiskInfo>();
 
     public DiskPickerViewModel(IDiskEnumerator enumerator, IDiskContentInspector inspector, IFileSystemProbe probe)
@@ -32,7 +42,9 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
         _enumerator = enumerator;
         _inspector = inspector;
         _probe = probe;
-        RefreshCommand = new RelayCommand(Refresh);
+
+        RefreshCommand = new RelayCommand(() => _ = RefreshAsync(), () => !IsBusy);
+        CancelCommand = new RelayCommand(Cancel, () => IsBusy);
     }
 
     public string Title => "Куда установить Windows?";
@@ -42,6 +54,8 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     public ObservableCollection<PlanWarning> Warnings { get; } = new();
 
     public RelayCommand RefreshCommand { get; }
+
+    public RelayCommand CancelCommand { get; }
 
     public DiskRowViewModel? Selected
     {
@@ -59,6 +73,27 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     {
         get => _planSummary;
         private set => Set(ref _planSummary, value);
+    }
+
+    /// <summary>Чем занят опрос прямо сейчас. Пусто, когда опрос не идёт.</summary>
+    public string StatusText
+    {
+        get => _statusText;
+        private set => Set(ref _statusText, value);
+    }
+
+    /// <summary>Идёт ли опрос. От него зависит вид ожидания и доступность кнопок.</summary>
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (Set(ref _isBusy, value))
+            {
+                RefreshCommand.RaiseCanExecuteChanged();
+                CancelCommand.RaiseCanExecuteChanged();
+            }
+        }
     }
 
     public string? DenialReason
@@ -89,33 +124,99 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 
     public void OnEnter()
     {
-        if (Rows.Count == 0 && EnumerationError is null)
+        if (Rows.Count == 0 && EnumerationError is null && !IsBusy)
         {
-            Refresh();
+            // Намеренно без ожидания: вход на страницу не должен блокировать
+            // оболочку. RefreshAsync не выпускает исключений наружу, поэтому
+            // брошенная задача не оставит необработанного отказа.
+            _ = RefreshAsync();
         }
     }
 
-    public void Refresh()
+    /// <summary>Прекращает идущий опрос. Безопасно вызывать, когда опроса нет.</summary>
+    public void Cancel() => _cancellation?.Cancel();
+
+    /// <summary>
+    /// Опрашивает диски и строит список. Тяжёлая часть выполняется в стороннем
+    /// потоке, разбор результата — там же, где вызвали, поэтому коллекции
+    /// меняются в потоке интерфейса.
+    /// </summary>
+    public async Task RefreshAsync()
     {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        _cancellation?.Dispose();
+        _cancellation = new CancellationTokenSource(Timeouts.DiskEnumeration);
+        var token = _cancellation.Token;
+
+        IsBusy = true;
         Rows.Clear();
         Warnings.Clear();
         Selected = null;
+        EnumerationError = null;
+        StatusText = "Опрашиваю диски…";
 
-        using var cts = new CancellationTokenSource(Timeouts.DiskEnumeration);
-        var snapshot = _enumerator.Enumerate(cts.Token);
+        var progress = new Progress<string>(text => StatusText = text);
 
-        EnumerationError = snapshot.EnumerationError;
-        _disks = snapshot.Disks;
-
-        foreach (var disk in _disks)
+        try
         {
-            _inspector.Inspect(disk, cts.Token);
+            var snapshot = await Task.Run(() => Scan(progress, token), token).ConfigureAwait(true);
+
+            EnumerationError = snapshot.EnumerationError;
+            _disks = snapshot.Disks;
+
+            BuildRows();
         }
+        catch (OperationCanceledException)
+        {
+            _disks = Array.Empty<DiskInfo>();
+            EnumerationError = "Опрос дисков прерван. Нажмите «Обновить», чтобы попробовать снова.";
+        }
+        finally
+        {
+            IsBusy = false;
+            StatusText = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Всё, что обращается наружу: перечисление, чтение содержимого, поиск описи
+    /// носителя. Выполняется в стороннем потоке и ничего не трогает в интерфейсе.
+    /// </summary>
+    private DiskSnapshot Scan(IProgress<string> progress, CancellationToken token)
+    {
+        var snapshot = _enumerator.Enumerate(token);
+
+        if (snapshot.IsFailed)
+        {
+            return snapshot;
+        }
+
+        var index = 0;
+        foreach (var disk in snapshot.Disks)
+        {
+            token.ThrowIfCancellationRequested();
+
+            index++;
+            progress.Report($"Смотрю, что лежит на диске {index} из {snapshot.Disks.Count}…");
+            _inspector.Inspect(disk, token);
+        }
+
+        token.ThrowIfCancellationRequested();
+        progress.Report("Ищу загрузочный носитель…");
 
         // Отметка носителя ставится до построения строк: от неё зависит вердикт,
         // а вердикт вычисляется в конструкторе строки.
-        BootMediaLocator.Mark(_disks, _probe);
+        BootMediaLocator.Mark(snapshot.Disks, _probe);
 
+        return snapshot;
+    }
+
+    private void BuildRows()
+    {
         foreach (var disk in _disks)
         {
             Rows.Add(DiskRowViewModel.ForDisk(disk));
