@@ -52,6 +52,23 @@ public class ContentInspectorTests
         Assert.True(partition.Content.Inspected);
     }
 
+    /// <summary>
+    /// Куст реестра SYSTEM закрыт правами доступа: под обычной учётной записью
+    /// File.Exists отвечает false даже там, где Windows стоит. Проверено на живой
+    /// машине 11.08.2026, см. docs/superpowers/notes/2026-08-10-disk-dump.md.
+    /// Поэтому есть второй признак — файл ядра, читаемый кем угодно.
+    /// </summary>
+    [Fact]
+    public void Windows_находится_по_ядру_когда_куст_реестра_недоступен()
+    {
+        var fs = new FakeFileSystem().AddFile(@"C:\Windows\System32\ntoskrnl.exe");
+        var partition = TestDisks.Partition(letter: 'C');
+
+        new FileSystemContentInspector(fs).Inspect(DiskWith(partition), CancellationToken.None);
+
+        Assert.True(partition.Content.WindowsFound);
+    }
+
     [Fact]
     public void Без_куста_реестра_Windows_не_считается_найденной()
     {
