@@ -36,6 +36,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'PeaceMedia.psm1') -Force
 
 $TypeEsp  = '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'
 $TypeData = '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}'
@@ -67,15 +68,7 @@ function Get-ImageIndex {
     throw "В '$WimPath' нет издания '$WantedName'. Есть: $($found -join '; ')."
 }
 
-function Assert-Admin {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw 'Нужны права администратора: разметка и монтирование без них не выполняются.'
-    }
-}
-
-Assert-Admin
+Assert-PeaceAdmin
 
 if (-not (Test-Path (Join-Path $SourceRoot 'sources\boot.wim'))) {
     throw "В '$SourceRoot' нет sources\boot.wim. Сначала запусти Save-InstallSource.ps1."
@@ -102,13 +95,7 @@ $usingVhdx = $PSCmdlet.ParameterSetName -eq 'Vhdx'
 if ($usingVhdx) {
     # Занятый виртуальный диск не удалить, и сборка развалилась бы на середине,
     # оставив на носителе смесь старого и нового. Проверяем до первого действия.
-    $busy = @(Get-VM -ErrorAction SilentlyContinue |
-        Get-VMHardDiskDrive -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -eq $VhdxPath })
-    if ($busy.Count -gt 0) {
-        $names = ($busy | ForEach-Object { $_.VMName }) -join ', '
-        throw "Виртуальный диск занят виртуалкой: $names. Выключи её и убери диск: Stop-VM -Name '$($busy[0].VMName)' -TurnOff -Force; Remove-VM -Name '$($busy[0].VMName)' -Force"
-    }
+    Assert-PeaceVhdxFree -VhdxPath $VhdxPath
 
     $vhdxFolder = Split-Path -Parent $VhdxPath
     if ($vhdxFolder -and -not (Test-Path $vhdxFolder)) {
@@ -185,7 +172,9 @@ try {
         Write-Host 'install.wim пропущен: до шага В образ Windows не нужен.'
     }
 
-    robocopy $AppFolder (Join-Path $dataRoot 'WindowsPeace') /E /R:2 /W:2 /NFL /NDL /NP | Out-Null
+    # Папка logs остаётся на хозяйской машине: журнал здешних запусков на носителе
+    # выдаёт себя за журнал из WinPE, и разбор идёт по ложному следу.
+    robocopy $AppFolder (Join-Path $dataRoot 'WindowsPeace') /E /R:2 /W:2 /NFL /NDL /NP /XD logs | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "robocopy приложения завершился с кодом $LASTEXITCODE" }
 
     if ($DiskDumpFolder) {
