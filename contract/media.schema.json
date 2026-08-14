@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://windowspeace.dev/schema/media-1.json",
+  "title": "Windows Peace Media Manifest",
+  "description": "Опись носителя Windows Peace. Лежит в корне раздела данных под именем windows-peace-media.json и служит двум делам сразу: по ней носитель опознаёт сам себя (установка на него невозможна), и по ней мастер строит первый экран — список того, что можно поставить. Пишется Studio при сборке носителя, читается мастером в WinPE.",
+  "type": "object",
+  "required": ["schemaVersion", "buildId", "createdUtc", "recipes"],
+  "additionalProperties": false,
+
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Ссылка на эту схему. Нужна только для автодополнения в редакторах, читателем игнорируется."
+    },
+
+    "schemaVersion": {
+      "const": 1,
+      "description": "Версия формата описи. Опись с большим числом мастер читать не станет и честно скажет, что носитель собран более новой версией Windows Peace."
+    },
+
+    "buildId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Идентификатор конкретной сборки носителя. Нужен, чтобы отличать носители друг от друга: на шаге В — при возобновлении установки, в Studio — чтобы понять, что уже записано."
+    },
+
+    "createdUtc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Когда носитель собран. Всемирное время, чтобы записи с разных машин сравнивались между собой."
+    },
+
+    "tool": {
+      "type": "object",
+      "description": "Чем собран носитель. Пишется для разбора жалоб: по нему видно, той ли версией Studio сделана флешка.",
+      "additionalProperties": false,
+      "properties": {
+        "name":    { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+
+    "recipes": {
+      "type": "array",
+      "description": "Что можно поставить с этого носителя. Пустой список разрешён намеренно: это не поломка формата, а отдельный исход, о котором мастер сообщает человеку своими словами.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "recipeFile", "image"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Устойчивое имя рецепта. По нему запоминается выбор человека, поэтому меняться между сборками не должно."
+          },
+
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Название для человека. Показывается на первом экране мастера."
+          },
+
+          "description": {
+            "type": "string",
+            "description": "Пояснение под названием: что именно получит человек, выбрав этот рецепт."
+          },
+
+          "recipeFile": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Путь к файлу рецепта от корня раздела, где лежит эта опись. Разделитель пишется обратной косой чертой, читатель принимает оба."
+          },
+
+          "image": {
+            "type": "object",
+            "description": "Образ Windows, из которого разворачивается система.",
+            "required": ["file", "index"],
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Путь к install.wim от корня раздела с описью."
+              },
+
+              "index": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Номер издания внутри образа. Ищется по имени при сборке, а не задаётся на глаз: в разных сборках Windows порядок изданий разный, и ошибка здесь уводит установку не на то издание."
+              },
+
+              "imageName": {
+                "type": "string",
+                "description": "Имя издания, которому соответствует номер. Хранится, чтобы номер можно было перепроверить, а не верить ему на слово."
+              },
+
+              "sizeBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Размер образа. Нужен, чтобы заранее сказать человеку, сколько места потребуется, и оценить время."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

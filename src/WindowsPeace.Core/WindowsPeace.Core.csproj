@@ -9,6 +9,15 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
     <Reference Include="System.Management" />
+
+    <!--
+      Разбор JSON. В .NET 8 он встроен, в .NET Framework его нет.
+      В журнале сериализация своя, чтобы не тянуть зависимость ради записи
+      одной строки, — но свой разборщик JSON это уже кустарщина, которой
+      в проекте быть не должно. Та же библиотека понадобится для чтения
+      рецепта на шаге В.
+    -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">

@@ -1,0 +1,21 @@
+{
+  "$schema": "../media.schema.json",
+  "schemaVersion": 1,
+  "buildId": "8f3c9d2e-4a71-4c0e-9b55-1d2e3f4a5b6c",
+  "createdUtc": "2026-08-14T12:00:00Z",
+  "tool": { "name": "WindowsPeace.Studio", "version": "0.2.0" },
+  "recipes": [
+    {
+      "id": "atlas-25h2-ru",
+      "name": "Atlas 25H2 RU",
+      "description": "Windows 11 Pro 25H2 ru-RU, Atlas, Windhawk",
+      "recipeFile": "recipes\\atlas-25h2-ru.recipe.json",
+      "image": {
+        "file": "sources\\install.wim",
+        "index": 1,
+        "imageName": "Windows 11 Pro",
+        "sizeBytes": 9711000000
+      }
+    }
+  ]
+}
