@@ -210,8 +210,17 @@ try {
     $json = $manifest | ConvertTo-Json -Depth 6
     [IO.File]::WriteAllText((Join-Path $dataRoot 'windows-peace-media.json'), $json, (New-Object Text.UTF8Encoding($false)))
 
-    # ---------- метка системного EFI ставится последней ----------
+    # ---------- загрузочный раздел прячется от человека ----------
+    # Смены типа мало: букву Windows запомнила при разметке и сама её не отзывает.
+    # Без явного снятия в проводнике появятся два диска вместо одного.
+    Remove-PartitionAccessPath -DiskNumber $diskNumber -PartitionNumber $bootNumber -AccessPath "${bootLetter}:\"
     Set-Partition -DiskNumber $diskNumber -PartitionNumber $bootNumber -GptType $TypeEsp
+
+    $check = Get-Partition -DiskNumber $diskNumber -PartitionNumber $bootNumber
+    if ($check.DriveLetter) {
+        throw "Загрузочный раздел остался под буквой $($check.DriveLetter): — в проводнике будет два диска."
+    }
+
     Write-Host 'Носитель собран.' -ForegroundColor Green
 }
 finally {
