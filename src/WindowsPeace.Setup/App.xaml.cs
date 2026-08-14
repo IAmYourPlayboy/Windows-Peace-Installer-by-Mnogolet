@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows;
 using WindowsPeace.Core.Diagnostics;
 using WindowsPeace.Core.Storage;
+using WindowsPeace.Core.Storage.Native;
 using WindowsPeace.Setup.Pages;
 using WindowsPeace.Setup.Shell;
 
@@ -20,8 +21,11 @@ public partial class App : Application
 
         var probe = new RealFileSystemProbe();
 
+        // Прямой разговор с Windows вместо WMI: библиотека System.Management
+        // в WinPE не работает, она подгружает модуль из .NET Framework, которого
+        // там нет. Проверено опытом, см. docs/superpowers/notes/2026-08-14-step-b-pe-experiments.md.
         var diskPicker = new DiskPickerViewModel(
-            new WmiDiskEnumerator(_log),
+            new NativeDiskEnumerator(new Win32StorageSource(), _log),
             new FileSystemContentInspector(probe),
             probe);
 

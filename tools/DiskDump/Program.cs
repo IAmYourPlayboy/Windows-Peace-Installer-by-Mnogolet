@@ -1,9 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
 using WindowsPeace.Core.Diagnostics;
 using WindowsPeace.Core.Storage;
+using WindowsPeace.Core.Storage.Native;
 
 namespace WindowsPeace.Tools.DiskDump;
 
@@ -45,7 +49,7 @@ internal sealed class DoubleWriter : TextWriter
 /// </summary>
 internal static class Program
 {
-    private static int Main()
+    private static int Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
 
@@ -66,12 +70,61 @@ internal static class Program
 
         using var cts = new CancellationTokenSource(Timeouts.DiskEnumeration);
 
-        var snapshot = new WmiDiskEnumerator(log).Enumerate(cts.Token);
+        // По умолчанию печатаются оба перечислителя и их сличение. Это и есть
+        // проверка перехода на прямой разговор с Windows: слепок шага А уже
+        // сверен автором с «Управлением дисками», и новый источник обязан
+        // дать то же самое. Ключами --wmi и --native можно оставить один.
+        var wantWmi = !HasFlag(args, "--native");
+        var wantNative = !HasFlag(args, "--wmi");
+
+        DiskSnapshot? wmi = null;
+        DiskSnapshot? native = null;
+
+        if (wantWmi)
+        {
+            wmi = Run("WMI, System.Management", new WmiDiskEnumerator(log), cts.Token);
+        }
+
+        if (wantNative)
+        {
+            native = Run("Напрямую у Windows", new NativeDiskEnumerator(new Win32StorageSource(), log), cts.Token);
+        }
+
+        if (wmi is not null && native is not null)
+        {
+            Compare(wmi, native);
+        }
+
+        var snapshot = native ?? wmi!;
+        return snapshot.IsFailed ? 1 : 0;
+    }
+
+    private static bool HasFlag(string[] args, string flag)
+    {
+        foreach (var arg in args)
+        {
+            if (string.Equals(arg, flag, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static DiskSnapshot Run(string title, IDiskEnumerator enumerator, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var snapshot = enumerator.Enumerate(cancellationToken);
+        stopwatch.Stop();
+
+        Console.WriteLine($"=== {title} — {stopwatch.ElapsedMilliseconds} мс ===");
 
         if (snapshot.IsFailed)
         {
-            Console.Error.WriteLine("Перечисление не удалось: " + snapshot.EnumerationError);
-            return 1;
+            Console.WriteLine("     ОТКАЗ: " + snapshot.EnumerationError);
+            Console.WriteLine();
+            return snapshot;
         }
 
         var probe = new RealFileSystemProbe();
@@ -79,11 +132,16 @@ internal static class Program
 
         foreach (var disk in snapshot.Disks)
         {
-            inspector.Inspect(disk, cts.Token);
+            inspector.Inspect(disk, cancellationToken);
         }
 
         BootMediaLocator.Mark(snapshot.Disks, probe);
+        Print(snapshot);
+        return snapshot;
+    }
 
+    private static void Print(DiskSnapshot snapshot)
+    {
         foreach (var disk in snapshot.Disks)
         {
             Console.WriteLine($"[{disk.Number}] {disk.FriendlyName}  {Gb(disk.Identity.SizeBytes)}  {disk.Identity.BusType}  {disk.Media}");
@@ -109,8 +167,87 @@ internal static class Program
 
             Console.WriteLine();
         }
+    }
 
-        return 0;
+    /// <summary>
+    /// Сличение двух источников. Расхождение здесь — не мелочь: на серийном номере
+    /// стоит отпечаток диска, а на отпечатке — вся защита от дефекта A.
+    /// </summary>
+    private static void Compare(DiskSnapshot wmi, DiskSnapshot native)
+    {
+        Console.WriteLine("=== Сличение ===");
+
+        if (wmi.IsFailed || native.IsFailed)
+        {
+            Console.WriteLine("     Сличать нечего: один из источников не ответил.");
+            Console.WriteLine();
+            return;
+        }
+
+        var differences = new List<string>();
+
+        if (wmi.Disks.Count != native.Disks.Count)
+        {
+            differences.Add($"дисков: WMI {wmi.Disks.Count}, напрямую {native.Disks.Count}");
+        }
+
+        for (var i = 0; i < Math.Min(wmi.Disks.Count, native.Disks.Count); i++)
+        {
+            var a = wmi.Disks[i];
+            var b = native.Disks[i];
+            var where = $"диск {a.Number}";
+
+            Check(differences, where, "серийный номер", a.Identity.SerialNumber, b.Identity.SerialNumber);
+            Check(differences, where, "доверие", a.Identity.Confidence.ToString(), b.Identity.Confidence.ToString());
+            Check(differences, where, "модель", a.Identity.Model, b.Identity.Model);
+            Check(differences, where, "объём", a.Identity.SizeBytes.ToString(CultureInfo.InvariantCulture),
+                b.Identity.SizeBytes.ToString(CultureInfo.InvariantCulture));
+            Check(differences, where, "шина", a.Identity.BusType.ToString(), b.Identity.BusType.ToString());
+            Check(differences, where, "носитель", a.Media.ToString(), b.Media.ToString());
+            Check(differences, where, "стиль разметки", a.PartitionStyle.ToString(), b.PartitionStyle.ToString());
+            Check(differences, where, "система", a.IsSystem.ToString(), b.IsSystem.ToString());
+            Check(differences, where, "съёмный", a.IsRemovable.ToString(), b.IsRemovable.ToString());
+            Check(differences, where, "разделов", a.Partitions.Count.ToString(CultureInfo.InvariantCulture),
+                b.Partitions.Count.ToString(CultureInfo.InvariantCulture));
+
+            for (var p = 0; p < Math.Min(a.Partitions.Count, b.Partitions.Count); p++)
+            {
+                var pa = a.Partitions[p];
+                var pb = b.Partitions[p];
+                var pw = $"{where}, раздел {pa.Number}";
+
+                Check(differences, pw, "смещение", pa.Offset.ToString(CultureInfo.InvariantCulture),
+                    pb.Offset.ToString(CultureInfo.InvariantCulture));
+                Check(differences, pw, "размер", pa.Size.ToString(CultureInfo.InvariantCulture),
+                    pb.Size.ToString(CultureInfo.InvariantCulture));
+                Check(differences, pw, "назначение", pa.Kind.ToString(), pb.Kind.ToString());
+                Check(differences, pw, "буква", pa.DriveLetter?.ToString(), pb.DriveLetter?.ToString());
+                Check(differences, pw, "файловая система", pa.Volume?.FileSystem, pb.Volume?.FileSystem);
+            }
+        }
+
+        if (differences.Count == 0)
+        {
+            Console.WriteLine("     Расхождений нет. Оба источника видят одно и то же.");
+        }
+        else
+        {
+            Console.WriteLine($"     РАСХОЖДЕНИЙ: {differences.Count}");
+            foreach (var difference in differences)
+            {
+                Console.WriteLine("     - " + difference);
+            }
+        }
+
+        Console.WriteLine();
+    }
+
+    private static void Check(List<string> into, string where, string what, string? fromWmi, string? fromNative)
+    {
+        if (!string.Equals(fromWmi, fromNative, StringComparison.Ordinal))
+        {
+            into.Add($"{where}, {what}: WMI «{fromWmi ?? "нет"}», напрямую «{fromNative ?? "нет"}»");
+        }
     }
 
     private static string Gb(ulong bytes) => (bytes / 1024d / 1024d / 1024d).ToString("0.0") + " ГБ";
