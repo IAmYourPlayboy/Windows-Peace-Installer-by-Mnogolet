@@ -122,6 +122,23 @@ public class JsonLinesOperationLogTests : IDisposable
     }
 
     [Fact]
+    public void Запись_видна_сразу_а_не_после_закрытия()
+    {
+        using var log = new JsonLinesOperationLog(LogPath);
+        log.Write(Record(operation: "успела записаться"));
+
+        // Журнал намеренно читается, пока он ещё открыт. Всё, что осталось
+        // в буфере, при обесточивании машины пропадает, — а журнал нужен
+        // именно после таких случаев. Проверить, что запись дошла до самого
+        // носителя, а не до кэша Windows, тестом нельзя: это делается опытом
+        // в WinPE. Здесь проверяется хотя бы то, что она вышла из программы.
+        using var stream = new FileStream(LogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+
+        Assert.Contains("успела записаться", reader.ReadToEnd(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Путь_по_умолчанию_лежит_рядом_с_приложением()
     {
         var path = JsonLinesOperationLog.DefaultPath(@"X:\peace");

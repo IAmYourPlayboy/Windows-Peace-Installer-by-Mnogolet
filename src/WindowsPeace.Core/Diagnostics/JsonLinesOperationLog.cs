@@ -13,6 +13,7 @@ namespace WindowsPeace.Core.Diagnostics;
 public sealed class JsonLinesOperationLog : IOperationLog, IDisposable
 {
     private readonly object _gate = new();
+    private readonly FileStream _stream;
     private readonly StreamWriter _writer;
 
     public JsonLinesOperationLog(string path)
@@ -23,11 +24,8 @@ public sealed class JsonLinesOperationLog : IOperationLog, IDisposable
             Directory.CreateDirectory(directory);
         }
 
-        _writer = new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false))
-        {
-            AutoFlush = true,
-        };
+        _stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
+        _writer = new StreamWriter(_stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
     /// <summary>Путь журнала по умолчанию: рядом с приложением, чтобы работало и в WinPE.</summary>
@@ -54,6 +52,14 @@ public sealed class JsonLinesOperationLog : IOperationLog, IDisposable
         lock (_gate)
         {
             _writer.WriteLine(line.ToString());
+
+            // Запись доводится до самого носителя, а не до кэша Windows.
+            // Журнал нужен как раз тогда, когда машину обесточили, она зависла
+            // или её выключили кнопкой: всё, что осталось в кэше, в этот момент
+            // пропадает. Один раз так уже пропала единственная запись из WinPE —
+            // на её месте в файле оказались нули.
+            _writer.Flush();
+            _stream.Flush(flushToDisk: true);
         }
     }
 
@@ -90,6 +96,7 @@ public sealed class JsonLinesOperationLog : IOperationLog, IDisposable
         lock (_gate)
         {
             _writer.Dispose();
+            _stream.Dispose();
         }
     }
 }

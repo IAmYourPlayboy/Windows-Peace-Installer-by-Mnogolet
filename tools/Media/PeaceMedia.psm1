@@ -168,7 +168,8 @@ function Update-PeaceMediaApp {
     param(
         [Parameter(Mandatory = $true)] [string] $VhdxPath,
         [Parameter(Mandatory = $true)] [string] $AppFolder,
-        [string] $DiskDumpFolder
+        [string] $DiskDumpFolder,
+        [switch] $ResetLog
     )
 
     if (-not (Test-Path (Join-Path $AppFolder 'WindowsPeace.Setup.exe'))) {
@@ -194,6 +195,16 @@ function Update-PeaceMediaApp {
         if ($dumpFull) {
             robocopy $dumpFull (Join-Path $target 'DiskDump') /MIR /R:2 /W:2 /NFL /NDL /NP | Out-Null
             if ($LASTEXITCODE -ge 8) { throw "robocopy DiskDump завершился с кодом $LASTEXITCODE." }
+        }
+
+        # Папка logs исключена из зеркалирования, а значит и не стирается им.
+        # Без явной уборки записи прошлых заходов копятся на носителе и выдают
+        # себя за нынешние — разбирать такой журнал невозможно.
+        if ($ResetLog) {
+            $logFolder = Join-Path $target 'logs'
+            if (Test-Path $logFolder) {
+                Remove-Item (Join-Path $logFolder '*') -Force -Recurse -ErrorAction SilentlyContinue
+            }
         }
 
         Write-Host "Приложение на носителе обновлено: $target" -ForegroundColor Green

@@ -129,6 +129,7 @@ else {
     $updateArgs = @{
         VhdxPath  = $VhdxPath
         AppFolder = (Join-Path $repoRoot $AppFolder)
+        ResetLog  = $true
     }
     if ($DiskDumpFolder) { $updateArgs.DiskDumpFolder = (Join-Path $repoRoot $DiskDumpFolder) }
     Update-PeaceMediaApp @updateArgs
