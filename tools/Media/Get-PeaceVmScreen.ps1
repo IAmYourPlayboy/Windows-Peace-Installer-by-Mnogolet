@@ -49,13 +49,24 @@ if ($result.ReturnValue -ne 0) {
     throw "GetVirtualSystemThumbnailImage вернул $($result.ReturnValue). Запасной путь — окно vmconnect и PrintWindow."
 }
 
-# Hyper-V отдаёт картинку в RGB565: два байта на точку, без заголовка.
+# Hyper-V отдаёт картинку в RGB565: два байта на точку, без заголовка и без выравнивания.
 $bytes = [byte[]]$result.ImageData
+$rowBytes = [int]$width * 2
+$expected = $rowBytes * [int]$height
+if ($bytes.Length -lt $expected) {
+    throw "Hyper-V отдал $($bytes.Length) байт вместо $expected на ${width}×${height}. Запасной путь — окно vmconnect и PrintWindow."
+}
+
 $bitmap = New-Object System.Drawing.Bitmap($width, $height, [System.Drawing.Imaging.PixelFormat]::Format16bppRgb565)
 $rectangle = New-Object System.Drawing.Rectangle(0, 0, $width, $height)
 $data = $bitmap.LockBits($rectangle, [System.Drawing.Imaging.ImageLockMode]::WriteOnly, $bitmap.PixelFormat)
 try {
-    [System.Runtime.InteropServices.Marshal]::Copy($bytes, 0, $data.Scan0, $bytes.Length)
+    # Строки в растре выровнены по четыре байта, а в присланных данных выравнивания
+    # нет. Копирование одним куском вылезает за буфер и роняет процесс.
+    for ($y = 0; $y -lt [int]$height; $y++) {
+        $target = [IntPtr]::Add($data.Scan0, $y * $data.Stride)
+        [System.Runtime.InteropServices.Marshal]::Copy($bytes, $y * $rowBytes, $target, $rowBytes)
+    }
 }
 finally {
     $bitmap.UnlockBits($data)
