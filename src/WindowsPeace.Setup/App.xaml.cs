@@ -19,6 +19,14 @@ public partial class App : Application
     private JsonLinesOperationLog? _log;
     private IOperationLog _journal = NullOperationLog.Instance;
 
+    /// <summary>
+    /// Почему журнала нет, если его нет. Молча оставлять человека без журнала
+    /// нельзя: он узнает об этом в худший момент — когда установка сорвалась
+    /// и смотреть оказалось не на что. Показывается на экране; пока экрана
+    /// для этого нет, значение хотя бы доступно тому, кто его туда доведёт.
+    /// </summary>
+    internal static string? LogProblem { get; private set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -31,10 +39,29 @@ public partial class App : Application
             @"X:\WindowsPeace\logs",
             new RealWritabilityProbe());
 
+        // Между проверкой «сюда пишется» и открытием файла проходит время,
+        // и за него файл может оказаться занят. Уронить старт из-за журнала
+        // было бы обиднее всего: он заводится ровно затем, чтобы падения
+        // было видно. Поэтому отказ здесь — не авария, а запись без журнала.
         if (location.IsAvailable)
         {
-            _log = new JsonLinesOperationLog(Path.Combine(location.Directory, "windows-peace.jsonl"));
-            _journal = _log;
+            try
+            {
+                _log = new JsonLinesOperationLog(Path.Combine(location.Directory, "windows-peace.jsonl"));
+                _journal = _log;
+            }
+            catch (IOException error)
+            {
+                LogProblem = "Журнал завести не удалось: " + error.Message;
+            }
+            catch (UnauthorizedAccessException error)
+            {
+                LogProblem = "Журнал завести не удалось: " + error.Message;
+            }
+        }
+        else
+        {
+            LogProblem = location.Reason;
         }
 
         // Падение после старта тоже должно оставлять след. Без этого журнал

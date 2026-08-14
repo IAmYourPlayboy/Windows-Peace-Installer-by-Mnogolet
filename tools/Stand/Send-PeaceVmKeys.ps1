@@ -10,10 +10,10 @@
     Коды клавиш — обычные виртуальные коды Windows.
 
 .EXAMPLE
-    powershell -File tools/Media/Send-PeaceVmKeys.ps1 -ShiftF10
+    powershell -File tools/Stand/Send-PeaceVmKeys.ps1 -ShiftF10
 
 .EXAMPLE
-    powershell -File tools/Media/Send-PeaceVmKeys.ps1 -Text 'diskpart' -Enter
+    powershell -File tools/Stand/Send-PeaceVmKeys.ps1 -Text 'diskpart' -Enter
 #>
 [CmdletBinding()]
 param(

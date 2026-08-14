@@ -84,18 +84,30 @@ function Get-PeaceMediaDataRoot {
     .DESCRIPTION
         Опознаётся по описи в корне, а не по букве и не по номеру раздела:
         буква у одного и того же раздела на разных машинах разная.
+
+        Буквы Windows раздаёт не в тот же миг, когда подключился диск. Поэтому
+        поиск повторяется несколько раз: иначе изредка вылезал бы отказ «носитель
+        собран не до конца» на совершенно исправном носителе, и искать причину
+        пришлось бы долго.
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)] [int] $DiskNumber
+        [Parameter(Mandatory = $true)] [int] $DiskNumber,
+        [int] $Attempts = 10,
+        [double] $PauseSeconds = 0.5
     )
 
-    $partitions = @(Get-Partition -DiskNumber $DiskNumber -ErrorAction Stop | Where-Object { $_.DriveLetter })
-    foreach ($partition in $partitions) {
-        $root = "$($partition.DriveLetter):\"
-        if (Test-Path (Join-Path $root 'windows-peace-media.json')) {
-            return $root
+    $partitions = @()
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        $partitions = @(Get-Partition -DiskNumber $DiskNumber -ErrorAction Stop | Where-Object { $_.DriveLetter })
+        foreach ($partition in $partitions) {
+            $root = "$($partition.DriveLetter):\"
+            if (Test-Path (Join-Path $root 'windows-peace-media.json')) {
+                return $root
+            }
         }
+
+        if ($attempt -lt $Attempts) { Start-Sleep -Seconds $PauseSeconds }
     }
 
     $letters = ($partitions | ForEach-Object { "$($_.DriveLetter):" }) -join ', '

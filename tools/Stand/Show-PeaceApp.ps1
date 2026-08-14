@@ -41,9 +41,10 @@ if (-not (Test-Path $AppPath)) {
 $AppPath = (Resolve-Path $AppPath).Path
 $appFolder = Split-Path -Parent $AppPath
 
-# Журнал прошлого запуска убирается: иначе непонятно, чьи это записи.
+# Журнал прошлого запуска убирается всегда: иначе записи разных заходов
+# идут вперемешку и выдают себя за нынешние.
 $logPath = Join-Path $appFolder 'logs\windows-peace.jsonl'
-if ((Test-Path $logPath) -and -not $KeepOpen) {
+if (Test-Path $logPath) {
     Remove-Item $logPath -Force -ErrorAction SilentlyContinue
 }
 

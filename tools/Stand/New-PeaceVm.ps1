@@ -15,7 +15,7 @@
     секунды на загрузке.
 
 .EXAMPLE
-    powershell -File tools/Media/New-PeaceVm.ps1 -VhdxPath D:\WindowsPeace-Stand\peace.vhdx
+    powershell -File tools/Stand/New-PeaceVm.ps1 -VhdxPath D:\WindowsPeace-Stand\peace.vhdx
 #>
 [CmdletBinding()]
 param(

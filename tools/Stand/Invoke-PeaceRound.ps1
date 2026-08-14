@@ -62,6 +62,19 @@ Import-Module (Join-Path $repoRoot 'tools\Media\PeaceMedia.psm1') -Force
 
 Assert-PeaceAdmin
 
+function Resolve-RepoPath {
+    <#
+        Относительный путь считается от корня репозитория, абсолютный берётся
+        как есть. Без этого Join-Path склеивает «D:\repo» и «D:\setup»
+        в «D:\repo\D:\setup», а ошибка потом приходит совсем из другого места.
+    #>
+    param([string] $Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $Path }
+    if ([IO.Path]::IsPathRooted($Path)) { return $Path }
+    Join-Path $repoRoot $Path
+}
+
 $started = Get-Date
 $step = 0
 function Write-Step {
@@ -85,7 +98,7 @@ if ($SkipPublish) {
 else {
     Write-Step 'Публикую приложение...'
     $publish = & dotnet publish (Join-Path $repoRoot 'src\WindowsPeace.Setup') `
-        -c Release -r win-x64 --self-contained true -o (Join-Path $repoRoot $AppFolder) --nologo -v q 2>&1
+        -c Release -r win-x64 --self-contained true -o (Resolve-RepoPath $AppFolder) --nologo -v q 2>&1
     if ($LASTEXITCODE -ne 0) {
         $publish | ForEach-Object { Write-Host $_ }
         throw 'Публикация не прошла. Круг дальше не идёт: на носитель нечего класть.'
@@ -118,20 +131,20 @@ if ($mediaMode -eq 'Full') {
     Write-Step 'Собираю носитель целиком...'
     $buildArgs = @{
         VhdxPath       = $VhdxPath
-        AppFolder      = (Join-Path $repoRoot $AppFolder)
+        AppFolder      = (Resolve-RepoPath $AppFolder)
         SkipInstallWim = $true
     }
-    if ($DiskDumpFolder) { $buildArgs.DiskDumpFolder = (Join-Path $repoRoot $DiskDumpFolder) }
+    if ($DiskDumpFolder) { $buildArgs.DiskDumpFolder = (Resolve-RepoPath $DiskDumpFolder) }
     & (Join-Path $repoRoot 'tools\Media\Build-PeaceMedia.ps1') @buildArgs
 }
 else {
     Write-Step 'Подменяю приложение на носителе...'
     $updateArgs = @{
         VhdxPath  = $VhdxPath
-        AppFolder = (Join-Path $repoRoot $AppFolder)
+        AppFolder = (Resolve-RepoPath $AppFolder)
         ResetLog  = $true
     }
-    if ($DiskDumpFolder) { $updateArgs.DiskDumpFolder = (Join-Path $repoRoot $DiskDumpFolder) }
+    if ($DiskDumpFolder) { $updateArgs.DiskDumpFolder = (Resolve-RepoPath $DiskDumpFolder) }
     Update-PeaceMediaApp @updateArgs
 }
 
