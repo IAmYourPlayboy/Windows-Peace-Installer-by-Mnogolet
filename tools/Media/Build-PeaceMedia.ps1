@@ -202,11 +202,18 @@ try {
     New-Item -ItemType Directory -Force -Path $imagesTarget, $recipesTarget, $appTarget | Out-Null
 
     $installWimRelative = Join-Path $PeaceMediaLayout.Images 'install.wim'
+
+    # Объём образа человек видит на первом экране мастера. Берётся он у самого
+    # файла, а не из рецепта: рецепт про размер ничего не знает, а число должно
+    # отвечать тому, что на носителе на самом деле лежит. Когда образ не кладём,
+    # объём не пишется вовсе — пустой столбец честнее выдуманного числа.
+    $installWimSize = $null
     if (-not $SkipInstallWim) {
         Copy-Item $sourceInstallWim (Join-Path $dataRoot $installWimRelative) -Force
+        $installWimSize = (Get-Item -LiteralPath (Join-Path $dataRoot $installWimRelative)).Length
     }
     else {
-        Write-Host 'install.wim пропущен: до шага В образ Windows не нужен.'
+        Write-Host 'install.wim пропущен: до шага В образ Windows не нужен. Объём образа в опись не пишется.'
     }
 
     # Папка logs остаётся на хозяйской машине: журнал здешних запусков на носителе
@@ -225,6 +232,13 @@ try {
 
     # ---------- опись ----------
     $recipeId = [IO.Path]::GetFileNameWithoutExtension($recipeFileName) -replace '\.recipe$', ''
+    $image = [ordered]@{
+        file      = $installWimRelative
+        index     = $imageIndex
+        imageName = $ImageName
+    }
+    if ($null -ne $installWimSize) { $image.sizeBytes = $installWimSize }
+
     $manifest = [ordered]@{
         schemaVersion = 1
         buildId       = [guid]::NewGuid().ToString()
@@ -236,11 +250,7 @@ try {
                 name        = $recipeTitle
                 description = $recipeDescription
                 recipeFile  = $recipeRelative
-                image       = [ordered]@{
-                    file      = $installWimRelative
-                    index     = $imageIndex
-                    imageName = $ImageName
-                }
+                image       = $image
             }
         )
     }
