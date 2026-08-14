@@ -1,9 +1,42 @@
 ﻿using System;
+using System.IO;
+using System.Text;
 using System.Threading;
 using WindowsPeace.Core.Diagnostics;
 using WindowsPeace.Core.Storage;
 
 namespace WindowsPeace.Tools.DiskDump;
+
+/// <summary>
+/// Пишет одновременно на экран и в файл. В WinPE прочитать экран нечем:
+/// там нет ни буфера обмена, ни PowerShell, а оперативный диск исчезает
+/// при перезагрузке. Всё, что останется от опыта, — файл на носителе.
+/// </summary>
+internal sealed class DoubleWriter : TextWriter
+{
+    private readonly TextWriter _first;
+    private readonly TextWriter _second;
+
+    public DoubleWriter(TextWriter first, TextWriter second)
+    {
+        _first = first;
+        _second = second;
+    }
+
+    public override Encoding Encoding => _first.Encoding;
+
+    public override void Write(char value)
+    {
+        _first.Write(value);
+        _second.Write(value);
+    }
+
+    public override void Flush()
+    {
+        _first.Flush();
+        _second.Flush();
+    }
+}
 
 /// <summary>
 /// Печатает то, что видит WmiDiskEnumerator. Нужна для ручной сверки
@@ -14,7 +47,19 @@ internal static class Program
 {
     private static int Main()
     {
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.OutputEncoding = Encoding.UTF8;
+
+        // Вывод дублируется в файл рядом с программой: в WinPE это
+        // единственное, что переживёт перезагрузку.
+        var dumpPath = Path.Combine(AppContext.BaseDirectory, "disk-dump.txt");
+        using var file = new StreamWriter(dumpPath, append: false, new UTF8Encoding(false));
+        using var both = new DoubleWriter(Console.Out, file);
+        Console.SetOut(both);
+
+        Console.WriteLine($"Windows Peace DiskDump, {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}");
+        Console.WriteLine($"Среда: {System.Environment.OSVersion}");
+        Console.WriteLine($"Каталог: {AppContext.BaseDirectory}");
+        Console.WriteLine();
 
         using var log = new JsonLinesOperationLog(
             JsonLinesOperationLog.DefaultPath(AppContext.BaseDirectory));
