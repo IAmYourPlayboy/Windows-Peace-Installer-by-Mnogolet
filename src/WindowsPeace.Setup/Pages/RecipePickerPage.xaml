@@ -1,0 +1,80 @@
+<UserControl x:Class="WindowsPeace.Setup.Pages.RecipePickerPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Margin="0,0,0,12" TextWrapping="Wrap"
+                   Text="Выберите, что установить. В списке — то, что записано на этом носителе."
+                   Visibility="{Binding HasRecipes, Converter={StaticResource BoolToVisibility}}" />
+
+        <!--
+            Беда с носителем показывается выше списка и не прячется за него:
+            когда ставить нечего, человек должен прочитать почему, а не гадать
+            над пустой таблицей. Выход отсюда только один, и он рядом с текстом —
+            в WinPE окно занимает весь экран, и креста, чтобы закрыть, на нём нет.
+        -->
+        <StackPanel Grid.Row="1"
+                    Visibility="{Binding HasTrouble, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding Trouble}" TextWrapping="Wrap" Foreground="#B00020" />
+
+            <!--
+                Техническая причина — второй строкой и помельче. Объяснять ею
+                ничего нельзя: приходит она от чужих библиотек и бывает
+                по-английски. Прятать тоже нечестно — по ней разбираются потом.
+            -->
+            <TextBlock Text="{Binding TroubleDetail}" TextWrapping="Wrap" Foreground="#666666"
+                       FontSize="11" Margin="0,8,0,0"
+                       Visibility="{Binding HasTroubleDetail, Converter={StaticResource BoolToVisibility}}" />
+
+            <Button Content="Закрыть мастер" Command="{Binding CloseCommand}"
+                    HorizontalAlignment="Left" Margin="0,16,0,0" Padding="10,4" />
+        </StackPanel>
+
+        <!--
+            IsSynchronizedWithCurrentItem="False" обязателен. По умолчанию список
+            синхронизирует выделение с «текущим элементом» коллекции, а текущий —
+            первый. Экран открывался бы с уже выбранным рецептом и включённой
+            кнопкой «Далее», хотя человек ничего не выбирал. Этот дефект уже
+            ловили на шаге А; спека требует обратного: даже единственный рецепт
+            человек выбирает сам, потому что должен видеть, что он ставит.
+        -->
+        <ListView x:Name="RecipeList" Grid.Row="2"
+                  ItemsSource="{Binding Recipes}"
+                  SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                  IsSynchronizedWithCurrentItem="False"
+                  Visibility="{Binding HasRecipes, Converter={StaticResource BoolToVisibility}}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Рецепт" Width="260" DisplayMemberBinding="{Binding Name}" />
+                    <GridViewColumn Header="Издание" Width="200" DisplayMemberBinding="{Binding Image}" />
+                    <GridViewColumn Header="Объём" Width="100" DisplayMemberBinding="{Binding Size}" />
+
+                    <!--
+                        Последний столбец занимает всё оставшееся место, а его текст
+                        переносится по строкам: описание рецепта — это единственное
+                        место, где сказано, чем одна сборка отличается от другой,
+                        и обрезать его нельзя ни при какой ширине окна.
+                    -->
+                    <GridViewColumn Header="Что это">
+                        <GridViewColumn.Width>
+                            <MultiBinding Converter="{StaticResource RemainingWidth}">
+                                <Binding ElementName="RecipeList" Path="ActualWidth" />
+                                <Binding ElementName="RecipeList" />
+                            </MultiBinding>
+                        </GridViewColumn.Width>
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+</UserControl>

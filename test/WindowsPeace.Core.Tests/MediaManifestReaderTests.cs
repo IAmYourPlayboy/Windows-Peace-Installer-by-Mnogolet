@@ -47,6 +47,45 @@ public class MediaManifestReaderTests
         Assert.NotEmpty(result.Message);
     }
 
+    /// <summary>
+    /// Разборщик JSON объясняется по-английски и подробностями вроде
+    /// «BytePositionInLine». Человеку у флешки это ничего не говорит, а выбросить
+    /// подробность нельзя — разбираться потом будем по ней. Поэтому объяснение
+    /// и подробность живут порознь. Дефект нашёлся при взгляде на экран.
+    /// </summary>
+    [Fact]
+    public void Человеку_объясняют_по_русски_а_подробность_уходит_отдельно()
+    {
+        var result = MediaManifestReader.Read("{ это не json ");
+
+        Assert.Equal(MediaManifestStatus.Damaged, result.Status);
+        Assert.DoesNotContain("json", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(string.IsNullOrEmpty(result.Detail));
+    }
+
+    [Fact]
+    public void Подробность_называет_рецепт_у_которого_не_хватает_полей()
+    {
+        var result = MediaManifestReader.Read("""
+        { "schemaVersion": 1, "buildId": "a", "createdUtc": "2026-08-14T12:00:00Z",
+          "recipes": [ { "id": "x", "name": "Икс", "recipeFile": "r.json",
+                         "image": { "file": "sources\\install.wim", "index": 1 } },
+                       { "id": "y", "name": "Игрек" } ] }
+        """);
+
+        Assert.Equal(MediaManifestStatus.Damaged, result.Status);
+        Assert.Contains("№2", result.Detail!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Целая_опись_ничего_не_объясняет_и_подробностей_не_несёт()
+    {
+        var result = MediaManifestReader.Read(Whole);
+
+        Assert.Equal(string.Empty, result.Message);
+        Assert.Null(result.Detail);
+    }
+
     [Fact]
     public void Версия_из_будущего_не_читается_молча()
     {

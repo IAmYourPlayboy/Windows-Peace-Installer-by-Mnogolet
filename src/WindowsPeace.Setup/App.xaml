@@ -1,8 +1,19 @@
 ﻿<Application x:Class="WindowsPeace.Setup.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:pages="clr-namespace:WindowsPeace.Setup.Pages">
+             xmlns:pages="clr-namespace:WindowsPeace.Setup.Pages"
+             xmlns:infrastructure="clr-namespace:WindowsPeace.Setup.Infrastructure">
     <Application.Resources>
+        <!--
+            Преобразователи общие на всё приложение: одинаковых сущностей
+            в двух местах быть не должно, а нужны они уже двум экранам.
+        -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <infrastructure:RemainingWidthConverter x:Key="RemainingWidth" />
+
+        <DataTemplate DataType="{x:Type pages:RecipePickerViewModel}">
+            <pages:RecipePickerPage />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type pages:DiskPickerViewModel}">
             <pages:DiskPickerPage />
         </DataTemplate>

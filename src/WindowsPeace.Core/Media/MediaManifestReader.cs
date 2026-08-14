@@ -24,11 +24,12 @@ public enum MediaManifestStatus
 /// <summary>Исход чтения вместе с объяснением для человека.</summary>
 public sealed class MediaManifestResult
 {
-    public MediaManifestResult(MediaManifestStatus status, MediaManifest? manifest, string message)
+    public MediaManifestResult(MediaManifestStatus status, MediaManifest? manifest, string message, string? detail = null)
     {
         Status = status;
         Manifest = manifest;
         Message = message;
+        Detail = detail;
     }
 
     public MediaManifestStatus Status { get; }
@@ -37,6 +38,15 @@ public sealed class MediaManifestResult
 
     /// <summary>Что сказать человеку. Пусто только тогда, когда говорить нечего.</summary>
     public string Message { get; }
+
+    /// <summary>
+    /// Техническая причина: текст от разборщика, номер строки, отказ файловой
+    /// системы. Держится отдельно от объяснения, потому что приходит от чужих
+    /// библиотек и бывает по-английски, а человеку у флешки такое читать незачем.
+    /// В журнал и на экран второй строкой она идёт — выбрасывать её нельзя:
+    /// разбираться потом будем по ней.
+    /// </summary>
+    public string? Detail { get; }
 }
 
 /// <summary>
@@ -48,6 +58,16 @@ public static class MediaManifestReader
 {
     public const int SupportedSchemaVersion = 1;
 
+    /// <summary>
+    /// Одно объяснение на все виды порчи. Человеку у флешки важно не то, какое
+    /// поле потерялось, а то, что ставить с этого носителя нельзя и что делать
+    /// дальше. Чем именно опись испорчена, говорит подробность — она уходит
+    /// в журнал и второй строкой на экран.
+    /// </summary>
+    private const string Broken =
+        "Опись носителя испорчена: прочитать её не получается. Установить с этого носителя " +
+        "ничего нельзя — его нужно записать заново.";
+
     public static MediaManifestResult Read(string json)
     {
         JsonDocument document;
@@ -57,13 +77,12 @@ public static class MediaManifestReader
         }
         catch (JsonException error)
         {
-            return new MediaManifestResult(MediaManifestStatus.Damaged,
-                null, "Опись носителя не разбирается: " + error.Message);
+            return new MediaManifestResult(MediaManifestStatus.Damaged, null, Broken, error.Message);
         }
         catch (ArgumentNullException)
         {
             return new MediaManifestResult(MediaManifestStatus.Damaged,
-                null, "Описи носителя нет вовсе.");
+                null, Broken, "Опись пуста.");
         }
 
         using (document)
@@ -74,7 +93,7 @@ public static class MediaManifestReader
                 versionElement.ValueKind != JsonValueKind.Number)
             {
                 return new MediaManifestResult(MediaManifestStatus.Damaged,
-                    null, "В описи нет версии формата.");
+                    null, Broken, "В описи нет версии формата.");
             }
 
             var version = versionElement.GetInt32();
@@ -82,7 +101,8 @@ public static class MediaManifestReader
             {
                 return new MediaManifestResult(MediaManifestStatus.TooNew, null, string.Format(
                     CultureInfo.CurrentCulture,
-                    "Носитель собран более новой версией Windows Peace: формат описи {0}, эта программа понимает {1}.",
+                    "Носитель собран более новой версией Windows Peace: формат описи {0}, а эта программа " +
+                    "понимает {1}. Установить с него нельзя — нужен мастер посвежее.",
                     version, SupportedSchemaVersion));
             }
 
@@ -90,7 +110,7 @@ public static class MediaManifestReader
                 recipesElement.ValueKind != JsonValueKind.Array)
             {
                 return new MediaManifestResult(MediaManifestStatus.Damaged,
-                    null, "В описи нет списка рецептов.");
+                    null, Broken, "В описи нет списка рецептов.");
             }
 
             var recipes = new List<MediaRecipe>();
@@ -99,8 +119,9 @@ public static class MediaManifestReader
                 var recipe = ReadRecipe(item);
                 if (recipe is null)
                 {
-                    return new MediaManifestResult(MediaManifestStatus.Damaged,
-                        null, "В описи есть рецепт без обязательных полей.");
+                    return new MediaManifestResult(MediaManifestStatus.Damaged, null, Broken, string.Format(
+                        CultureInfo.CurrentCulture,
+                        "У рецепта №{0} в описи не хватает обязательных полей.", recipes.Count + 1));
                 }
 
                 recipes.Add(recipe);

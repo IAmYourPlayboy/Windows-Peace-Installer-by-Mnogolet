@@ -79,7 +79,7 @@ public partial class App : Application
 
         var probe = new RealFileSystemProbe();
 
-        DescribeMedia(e.Args, snapshot, probe);
+        var recipePicker = CreateRecipePicker(e.Args, snapshot, probe);
 
         // Прямой разговор с Windows вместо WMI: библиотека System.Management
         // в WinPE не работает, она подгружает модуль из .NET Framework, которого
@@ -93,6 +93,7 @@ public partial class App : Application
 
         var navigator = new WizardNavigator(new List<IWizardPage>
         {
+            recipePicker,
             diskPicker,
             new PlaceholderViewModel(),
         });
@@ -106,29 +107,31 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Находит носитель и записывает в журнал, что удалось из него прочитать.
-    /// Экрана для этого пока нет — он появится следующей задачей, — но знать,
-    /// нашлась ли опись на настоящем носителе, надо уже сейчас: без записи
-    /// в журнале это выяснялось бы только глазами по картинке.
+    /// Находит носитель, читает опись и строит по ней первый экран. Исход чтения
+    /// заодно уходит в журнал: экран человек увидит, а журнал останется, когда
+    /// смотреть будет уже некому — ради этого он и заводится.
     /// </summary>
-    private void DescribeMedia(string[] args, EnvironmentSnapshot snapshot, IFileSystemProbe probe)
+    private RecipePickerViewModel CreateRecipePicker(string[] args, EnvironmentSnapshot snapshot, IFileSystemProbe probe)
     {
         var media = LocateMedia(args, snapshot, probe);
         if (media is null)
         {
             Checkpoint("Носитель не найден", "Описи нет ни на одном томе: " + string.Join(" ", snapshot.VolumeRoots),
                 OperationOutcome.Failure);
-            return;
+            return RecipePickerViewModel.WithoutMedia(snapshot.VolumeRoots, Shutdown);
         }
 
         var manifest = media.Load(new FileTextReader());
+        var trouble = manifest.Detail is null ? manifest.Message : manifest.Message + " " + manifest.Detail;
         var detail = manifest.Status == MediaManifestStatus.Ok
             ? string.Format(CultureInfo.CurrentCulture, "{0}; рецептов: {1}",
                 media.ManifestPath, manifest.Manifest!.Recipes.Count)
-            : string.Format(CultureInfo.CurrentCulture, "{0}; {1}", media.ManifestPath, manifest.Message);
+            : string.Format(CultureInfo.CurrentCulture, "{0}; {1}", media.ManifestPath, trouble);
 
         Checkpoint("Чтение описи: " + manifest.Status, detail,
             manifest.Status == MediaManifestStatus.Ok ? OperationOutcome.Success : OperationOutcome.Failure);
+
+        return new RecipePickerViewModel(manifest, Shutdown);
     }
 
     /// <summary>

@@ -35,9 +35,13 @@ public sealed class MediaLocation
         if (!reader.Exists(ManifestPath))
         {
             return new MediaManifestResult(MediaManifestStatus.Damaged, null,
-                "Опись носителя исчезла между поиском и чтением.");
+                "Опись носителя исчезла между поиском и чтением: похоже, носитель вынули.",
+                ManifestPath);
         }
 
+        // Подробность от файловой системы приходит на языке Windows и бывает
+        // по-английски. Человеку у флешки она ничего не объясняет, разбираться
+        // по ней будем мы, поэтому она идёт отдельно от объяснения.
         try
         {
             return MediaManifestReader.Read(reader.ReadAllText(ManifestPath));
@@ -45,12 +49,14 @@ public sealed class MediaLocation
         catch (IOException error)
         {
             return new MediaManifestResult(MediaManifestStatus.Damaged, null,
-                "Опись носителя не читается: " + error.Message);
+                "Опись носителя не читается: похоже, носитель испорчен или его вынули.",
+                error.Message);
         }
         catch (UnauthorizedAccessException error)
         {
             return new MediaManifestResult(MediaManifestStatus.Damaged, null,
-                "Доступ к описи носителя закрыт: " + error.Message);
+                "Опись носителя не читается: доступ к файлу закрыт.",
+                error.Message);
         }
     }
 }

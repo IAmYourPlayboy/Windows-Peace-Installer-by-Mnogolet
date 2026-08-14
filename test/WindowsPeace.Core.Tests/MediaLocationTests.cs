@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using WindowsPeace.Core.Media;
 using WindowsPeace.Core.Storage;
 using Xunit;
@@ -26,6 +27,23 @@ public class MediaLocationTests
         public bool Exists(string path) => _files.ContainsKey(path);
 
         public string ReadAllText(string path) => _files[path];
+    }
+
+    /// <summary>Файл есть, но чтение отказывает: так ведёт себя вынутая флешка.</summary>
+    private sealed class ThrowingTextFiles : ITextFileReader
+    {
+        private readonly string _path;
+        private readonly string _message;
+
+        public ThrowingTextFiles(string path, string message)
+        {
+            _path = path;
+            _message = message;
+        }
+
+        public bool Exists(string path) => string.Equals(path, _path, StringComparison.OrdinalIgnoreCase);
+
+        public string ReadAllText(string path) => throw new IOException(_message);
     }
 
     private static DiskInfo DiskWithLetters(params char[] letters)
@@ -116,6 +134,23 @@ public class MediaLocationTests
 
         Assert.Equal(MediaManifestStatus.Damaged, result.Status);
         Assert.NotEmpty(result.Message);
+    }
+
+    /// <summary>
+    /// Отказ файловой системы приходит на языке Windows и бывает по-английски.
+    /// Человеку показывается объяснение своими словами, а сам отказ уходит
+    /// подробностью — по ней потом и разбираются.
+    /// </summary>
+    [Fact]
+    public void Отказ_чтения_объясняется_словами_а_причина_идёт_подробностью()
+    {
+        var location = new MediaLocation(@"E:\");
+
+        var result = location.Load(new ThrowingTextFiles(location.ManifestPath, "Device not ready. 0x80070015"));
+
+        Assert.Equal(MediaManifestStatus.Damaged, result.Status);
+        Assert.DoesNotContain("0x", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("0x80070015", result.Detail!, StringComparison.Ordinal);
     }
 
     [Fact]
