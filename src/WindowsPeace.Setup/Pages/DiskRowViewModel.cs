@@ -64,7 +64,7 @@ public sealed class DiskRowViewModel
     public static DiskRowViewModel ForDisk(DiskInfo disk)
         => new(RowKind.Disk, SelectionTarget.ForWholeDisk(disk),
             disk.FriendlyName,
-            Format(disk.Identity.SizeBytes),
+            ByteSize.Format(disk.Identity.SizeBytes),
             string.Empty,
             DescribeBus(disk),
             DescribeDisk(disk));
@@ -72,14 +72,14 @@ public sealed class DiskRowViewModel
     public static DiskRowViewModel ForPartition(DiskInfo disk, PartitionInfo partition)
         => new(RowKind.Partition, SelectionTarget.ForPartition(disk, partition),
             DescribePartitionName(partition),
-            Format(partition.Size),
-            partition.Volume is null ? "—" : Format(partition.Volume.FreeBytes),
+            ByteSize.Format(partition.Size),
+            partition.Volume is null ? "—" : ByteSize.Format(partition.Volume.FreeBytes),
             DescribeKind(partition.Kind),
             DescribeContent(partition));
 
     public static DiskRowViewModel ForFreeSpace(DiskInfo disk, FreeSpaceInfo freeSpace)
         => new(RowKind.FreeSpace, SelectionTarget.ForFreeSpace(disk, freeSpace),
-            "Незанятое пространство", Format(freeSpace.Size), string.Empty, "—", string.Empty);
+            "Незанятое пространство", ByteSize.Format(freeSpace.Size), string.Empty, "—", string.Empty);
 
     private static string DescribePartitionName(PartitionInfo partition)
     {
@@ -131,12 +131,4 @@ public sealed class DiskRowViewModel
         return string.Empty;
     }
 
-    private static string Format(ulong bytes)
-    {
-        const ulong Mib = 1024UL * 1024UL;
-        const ulong Gib = 1024UL * Mib;
-        return bytes >= Gib
-            ? ((double)bytes / Gib).ToString("0.#", CultureInfo.CurrentCulture) + " ГБ"
-            : (bytes / Mib).ToString(CultureInfo.CurrentCulture) + " МБ";
-    }
 }
