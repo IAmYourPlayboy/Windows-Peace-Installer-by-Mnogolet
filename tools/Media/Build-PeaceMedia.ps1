@@ -100,6 +100,16 @@ Write-Host "Издание '$ImageName' лежит в install.wim под ном�
 $usingVhdx = $PSCmdlet.ParameterSetName -eq 'Vhdx'
 
 if ($usingVhdx) {
+    # Занятый виртуальный диск не удалить, и сборка развалилась бы на середине,
+    # оставив на носителе смесь старого и нового. Проверяем до первого действия.
+    $busy = @(Get-VM -ErrorAction SilentlyContinue |
+        Get-VMHardDiskDrive -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -eq $VhdxPath })
+    if ($busy.Count -gt 0) {
+        $names = ($busy | ForEach-Object { $_.VMName }) -join ', '
+        throw "Виртуальный диск занят виртуалкой: $names. Выключи её и убери диск: Stop-VM -Name '$($busy[0].VMName)' -TurnOff -Force; Remove-VM -Name '$($busy[0].VMName)' -Force"
+    }
+
     $vhdxFolder = Split-Path -Parent $VhdxPath
     if ($vhdxFolder -and -not (Test-Path $vhdxFolder)) {
         New-Item -ItemType Directory -Force -Path $vhdxFolder | Out-Null

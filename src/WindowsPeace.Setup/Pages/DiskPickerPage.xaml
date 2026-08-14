@@ -1,8 +1,10 @@
 ﻿<UserControl x:Class="WindowsPeace.Setup.Pages.DiskPickerPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:infrastructure="clr-namespace:WindowsPeace.Setup.Infrastructure">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <infrastructure:RemainingWidthConverter x:Key="RemainingWidth" />
     </UserControl.Resources>
 
     <Grid>
@@ -22,7 +24,7 @@
             «Далее», хотя человек ничего не выбирал. Спека требует обратного:
             пока не выбрано ничего, дальше идти нельзя.
         -->
-        <ListView Grid.Row="0" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+        <ListView x:Name="DiskList" Grid.Row="0" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   IsSynchronizedWithCurrentItem="False">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
@@ -41,10 +43,28 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="Объём" Width="110" DisplayMemberBinding="{Binding Size}" />
+                    <GridViewColumn Header="Объём" Width="100" DisplayMemberBinding="{Binding Size}" />
                     <GridViewColumn Header="Свободно" Width="110" DisplayMemberBinding="{Binding Free}" />
-                    <GridViewColumn Header="Тип" Width="150" DisplayMemberBinding="{Binding Type}" />
-                    <GridViewColumn Header="Состояние" Width="260" DisplayMemberBinding="{Binding Note}" />
+                    <GridViewColumn Header="Тип" Width="140" DisplayMemberBinding="{Binding Type}" />
+
+                    <!--
+                        Последний столбец занимает всё оставшееся место, а его текст
+                        переносится по строкам. Здесь лежит объяснение, почему на диск
+                        нельзя ставить, — обрезать его нельзя ни при какой ширине окна.
+                    -->
+                    <GridViewColumn Header="Состояние">
+                        <GridViewColumn.Width>
+                            <MultiBinding Converter="{StaticResource RemainingWidth}">
+                                <Binding ElementName="DiskList" Path="ActualWidth" />
+                                <Binding ElementName="DiskList" />
+                            </MultiBinding>
+                        </GridViewColumn.Width>
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Note}" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>
