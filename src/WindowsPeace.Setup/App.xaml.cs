@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Threading;
 using WindowsPeace.Core.Diagnostics;
 using WindowsPeace.Core.Machine;
+using WindowsPeace.Core.Media;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Core.Storage.Native;
 using WindowsPeace.Setup.Pages;
@@ -35,8 +36,8 @@ public partial class App : Application
         // что-то упадёт, единственным следом останется этот файл: в WinPE
         // после перезагрузки не остаётся ни экрана, ни памяти, ни временных папок.
         var location = LogLocationResolver.Resolve(
-            Path.Combine(AppContext.BaseDirectory, "logs"),
-            @"X:\WindowsPeace\logs",
+            Path.Combine(AppContext.BaseDirectory, JsonLinesOperationLog.FolderName),
+            Path.Combine(HostEnvironment.RamDriveRoot, MediaLayout.AppFolderName, JsonLinesOperationLog.FolderName),
             new RealWritabilityProbe());
 
         // Между проверкой «сюда пишется» и открытием файла проходит время,
@@ -47,7 +48,7 @@ public partial class App : Application
         {
             try
             {
-                _log = new JsonLinesOperationLog(Path.Combine(location.Directory, "windows-peace.jsonl"));
+                _log = new JsonLinesOperationLog(Path.Combine(location.Directory, JsonLinesOperationLog.FileName));
                 _journal = _log;
             }
             catch (IOException error)

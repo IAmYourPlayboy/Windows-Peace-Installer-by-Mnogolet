@@ -15,6 +15,23 @@
 
 Set-StrictMode -Version Latest
 
+<#
+    Раскладка носителя: что и под каким именем на нём лежит.
+
+    Те же имена знает ядро — src/WindowsPeace.Core/Media/MediaLayout.cs.
+    Разойтись им нельзя: мастер ищет опись по имени, и промах означает,
+    что носитель не опознан, то есть предложен под форматирование.
+    Языка два, поэтому и мест два, но внутри каждого — одно.
+#>
+$PeaceMediaLayout = @{
+    Manifest = 'windows-peace-media.json'
+    App      = 'WindowsPeace'
+    Recipes  = 'recipes'
+    Images   = 'sources'
+    Logs     = 'logs'
+    LogFile  = 'windows-peace.jsonl'
+}
+
 function Assert-PeaceAdmin {
     <#
     .SYNOPSIS
@@ -102,7 +119,7 @@ function Get-PeaceMediaDataRoot {
         $partitions = @(Get-Partition -DiskNumber $DiskNumber -ErrorAction Stop | Where-Object { $_.DriveLetter })
         foreach ($partition in $partitions) {
             $root = "$($partition.DriveLetter):\"
-            if (Test-Path (Join-Path $root 'windows-peace-media.json')) {
+            if (Test-Path (Join-Path $root $PeaceMediaLayout.Manifest)) {
                 return $root
             }
         }
@@ -112,7 +129,7 @@ function Get-PeaceMediaDataRoot {
 
     $letters = ($partitions | ForEach-Object { "$($_.DriveLetter):" }) -join ', '
     $seen = if ($letters) { "Разделы с буквами: $letters." } else { 'Ни один раздел не получил буквы.' }
-    throw "На диске $DiskNumber нет раздела с описью windows-peace-media.json. $seen Носитель собран не до конца?"
+    throw "На диске $DiskNumber нет раздела с описью $($PeaceMediaLayout.Manifest). $seen Носитель собран не до конца?"
 }
 
 function Use-PeaceMedia {
@@ -193,7 +210,7 @@ function Update-PeaceMediaApp {
     Use-PeaceMedia -VhdxPath $VhdxPath -Action {
         param($root)
 
-        $target = Join-Path $root 'WindowsPeace'
+        $target = Join-Path $root $PeaceMediaLayout.App
 
         # /MIR, а не /E: иначе файлы, исчезнувшие из публикации, остались бы
         # на носителе и продолжали запускаться.
@@ -201,7 +218,7 @@ function Update-PeaceMediaApp {
         # Папка logs не переносится ни в ту, ни в другую сторону. Иначе журнал
         # запусков на хозяйской машине уезжает на носитель и выдаёт себя
         # за журнал из WinPE — однажды это уже сбило с толку.
-        robocopy $appFull $target /MIR /R:2 /W:2 /NFL /NDL /NP /XD DiskDump logs | Out-Null
+        robocopy $appFull $target /MIR /R:2 /W:2 /NFL /NDL /NP /XD DiskDump $($PeaceMediaLayout.Logs) | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "robocopy приложения завершился с кодом $LASTEXITCODE." }
 
         if ($dumpFull) {
@@ -213,7 +230,7 @@ function Update-PeaceMediaApp {
         # Без явной уборки записи прошлых заходов копятся на носителе и выдают
         # себя за нынешние — разбирать такой журнал невозможно.
         if ($ResetLog) {
-            $logFolder = Join-Path $target 'logs'
+            $logFolder = Join-Path $target $PeaceMediaLayout.Logs
             if (Test-Path $logFolder) {
                 Remove-Item (Join-Path $logFolder '*') -Force -Recurse -ErrorAction SilentlyContinue
             }
@@ -241,7 +258,7 @@ function Get-PeaceMediaLog {
     Use-PeaceMedia -VhdxPath $VhdxPath -Action {
         param($root)
 
-        $logPath = Join-Path $root 'WindowsPeace\logs\windows-peace.jsonl'
+        $logPath = Join-Path $root (Join-Path $PeaceMediaLayout.App (Join-Path $PeaceMediaLayout.Logs $PeaceMediaLayout.LogFile))
         if (-not (Test-Path $logPath)) {
             Write-Warning "Журнала на носителе нет: $logPath. Мастер не дошёл до записи или писать было некуда."
             return @()
@@ -260,5 +277,5 @@ function Get-PeaceMediaLog {
     }
 }
 
-Export-ModuleMember -Function Assert-PeaceAdmin, Get-PeaceVhdxHolder, Assert-PeaceVhdxFree,
-    Get-PeaceMediaDataRoot, Use-PeaceMedia, Update-PeaceMediaApp, Get-PeaceMediaLog
+Export-ModuleMember -Variable PeaceMediaLayout -Function Assert-PeaceAdmin, Get-PeaceVhdxHolder,
+    Assert-PeaceVhdxFree, Get-PeaceMediaDataRoot, Use-PeaceMedia, Update-PeaceMediaApp, Get-PeaceMediaLog

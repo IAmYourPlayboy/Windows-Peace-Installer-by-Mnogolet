@@ -46,9 +46,16 @@ param(
     [string] $OutFolder = 'D:\WindowsPeace-Stand\round',
     [string] $VmName = 'Windows Peace Stand',
 
-    [string] $Run = 'WindowsPeace\WindowsPeace.Setup.exe',
+    # Что запустить на носителе. Путь от корня раздела данных; по умолчанию —
+    # сам мастер. Значение подставляется ниже: раскладка носителя живёт в модуле,
+    # а он к моменту разбора ключей ещё не подключён.
+    [string] $Run,
     [switch] $NoRun,
     [switch] $KeepRunning,
+
+    # Где искать носитель в WinPE. Буквы там непредсказуемы: раздел данных
+    # однажды оказался C:, и опираться на них нельзя — только перебор.
+    [string] $SearchLetters = 'C D E F G H I J',
 
     [double] $BootTimeoutSeconds = 240,
     [double] $RunTimeoutSeconds = 150
@@ -75,6 +82,16 @@ function Resolve-RepoPath {
     Join-Path $repoRoot $Path
 }
 
+if ([string]::IsNullOrWhiteSpace($Run)) {
+    $Run = Join-Path $PeaceMediaLayout.App 'WindowsPeace.Setup.exe'
+}
+
+# Насколько сильно должна измениться картинка, чтобы считаться новой.
+# Окно командной строки занимает треть экрана, окно мастера — почти весь;
+# перевод строки и мигающий курсор не дотягивают ни до того, ни до другого.
+$CmdAppearedChange = 0.03
+$AppAppearedChange = 0.2
+
 $started = Get-Date
 $step = 0
 function Write-Step {
@@ -88,7 +105,7 @@ if (-not (Test-Path $OutFolder)) { New-Item -ItemType Directory -Force -Path $Ou
 $bootShot = Join-Path $OutFolder '01-boot.png'
 $cmdShot  = Join-Path $OutFolder '02-cmd.png'
 $runShot  = Join-Path $OutFolder '03-run.png'
-$logCopy  = Join-Path $OutFolder 'windows-peace.jsonl'
+$logCopy  = Join-Path $OutFolder $PeaceMediaLayout.LogFile
 
 # ---------- 1. приложение ----------
 
@@ -186,7 +203,7 @@ try {
 
         $cmd = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
             -TimeoutSeconds 45 -StableSeconds 1.5 -PollSeconds 0.5 `
-            -DifferentFrom $boot.Frame -MinDifference 0.03 `
+            -DifferentFrom $boot.Frame -MinDifference $CmdAppearedChange `
             -What 'окно командной строки'
 
         if ($cmd.Frame) { Save-PeaceFrame -Frame $cmd.Frame -Path $cmdShot }
@@ -198,12 +215,10 @@ try {
         else {
             # ---------- 7. запуск ----------
 
-            # Буквы в WinPE непредсказуемы: раздел данных однажды оказался C:.
             # Носитель ищется по описи в корне — тем же признаком, каким его
             # находит сам мастер. Поиск и запуск одной строкой: лишний шаг —
             # лишние полторы секунды и лишнее место, где круг может сбиться.
-            $letters = 'C D E F G H I J'
-            $line = "for %d in ($letters) do @if exist %d:\windows-peace-media.json %d:\$Run"
+            $line = "for %d in ($SearchLetters) do @if exist %d:\$($PeaceMediaLayout.Manifest) %d:\$Run"
 
             Write-Step "Набираю: $line"
             & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Text $line | Out-Null
@@ -220,7 +235,7 @@ try {
             # что командная строка просто перевела строку или напечатала отказ.
             $app = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
                 -TimeoutSeconds $RunTimeoutSeconds -StableSeconds 2.5 `
-                -DifferentFrom $typed -MinDifference 0.2 `
+                -DifferentFrom $typed -MinDifference $AppAppearedChange `
                 -What 'окно приложения'
 
             if ($app.Frame) { Save-PeaceFrame -Frame $app.Frame -Path $runShot }

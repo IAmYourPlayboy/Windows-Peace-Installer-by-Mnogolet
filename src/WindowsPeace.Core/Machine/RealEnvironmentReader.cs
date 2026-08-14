@@ -112,7 +112,7 @@ public sealed class RealEnvironmentReader : IEnvironmentReader
         // В WinPE эта папка иногда не объявлена: система живёт на оперативном
         // диске и заводит не все привычные пути. Тогда берём её оттуда, где
         // она там лежит всегда.
-        return string.IsNullOrEmpty(directory) ? @"X:\Windows" : directory;
+        return string.IsNullOrEmpty(directory) ? HostEnvironment.RamDriveWindows : directory;
     }
 
     private void Complain(string what, string subject, Exception error)

@@ -28,9 +28,15 @@ public sealed class JsonLinesOperationLog : IOperationLog, IDisposable
         _writer = new StreamWriter(_stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
+    /// <summary>Папка журнала. Всегда рядом с тем, чей это журнал.</summary>
+    public const string FolderName = "logs";
+
+    /// <summary>Имя файла журнала. Одно на весь проект: его ищут и люди, и оснастка.</summary>
+    public const string FileName = "windows-peace.jsonl";
+
     /// <summary>Путь журнала по умолчанию: рядом с приложением, чтобы работало и в WinPE.</summary>
     public static string DefaultPath(string baseDirectory)
-        => Path.Combine(baseDirectory, "logs", "windows-peace.jsonl");
+        => Path.Combine(baseDirectory, FolderName, FileName);
 
     public void Write(OperationRecord record)
     {

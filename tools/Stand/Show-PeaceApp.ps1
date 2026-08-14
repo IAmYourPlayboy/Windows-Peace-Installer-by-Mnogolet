@@ -34,6 +34,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PeaceFrames.psm1') -Force
+Import-Module (Join-Path (Split-Path -Parent $PSScriptRoot) 'Media\PeaceMedia.psm1') -Force
 
 if (-not (Test-Path $AppPath)) {
     throw "Приложения нет: '$AppPath'. Сначала опубликуй его: dotnet publish src\WindowsPeace.Setup -c Release -r win-x64 --self-contained true -o artifacts\setup"
@@ -43,7 +44,7 @@ $appFolder = Split-Path -Parent $AppPath
 
 # Журнал прошлого запуска убирается всегда: иначе записи разных заходов
 # идут вперемешку и выдают себя за нынешние.
-$logPath = Join-Path $appFolder 'logs\windows-peace.jsonl'
+$logPath = Join-Path $appFolder (Join-Path $PeaceMediaLayout.Logs $PeaceMediaLayout.LogFile)
 if (Test-Path $logPath) {
     Remove-Item $logPath -Force -ErrorAction SilentlyContinue
 }

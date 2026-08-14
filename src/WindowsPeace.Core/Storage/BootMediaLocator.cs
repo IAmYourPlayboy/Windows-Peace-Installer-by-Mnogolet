@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using WindowsPeace.Core.Media;
 
 namespace WindowsPeace.Core.Storage;
 
@@ -11,8 +12,8 @@ namespace WindowsPeace.Core.Storage;
 /// </summary>
 public static class BootMediaLocator
 {
-    /// <summary>Имя описи. То же значение используется Studio при записи носителя.</summary>
-    public const string ManifestFileName = "windows-peace-media.json";
+    /// <summary>Имя описи. Живёт в раскладке носителя, здесь только ссылка на неё.</summary>
+    public const string ManifestFileName = MediaLayout.ManifestFileName;
 
     public static void Mark(IReadOnlyList<DiskInfo> disks, IFileSystemProbe probe)
     {

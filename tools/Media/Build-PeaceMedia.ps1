@@ -27,11 +27,21 @@ param(
     [Parameter(Mandatory = $true, ParameterSetName = 'Usb')] [int] $UsbDiskNumber,
     [Parameter(Mandatory = $true, ParameterSetName = 'Usb')] [string] $ConfirmModel,
 
+    # Загрузочный раздел. Двух гигабайт хватает: внутри только boot.wim
+    # (около 0,7 ГБ) и загрузчик. Вынесено ключом, потому что размер boot.wim
+    # зависит от образа, а промах здесь виден только в конце сборки.
+    [uint64] $BootPartitionBytes = 2GB,
+
     [string] $SourceRoot = 'D:\WindowsPeace-Source',
     [Parameter(Mandatory = $true)] [string] $AppFolder,
     [string] $DiskDumpFolder,
     [string] $RecipeFile = 'contract\examples\atlas-25h2-ru.recipe.json',
-    [string] $ImageName = 'Windows 11 Pro',
+
+    # Имя издания внутри install.wim. По умолчанию берётся из самого рецепта
+    # (source.windows.imageName); задаётся здесь только для разбора случаев,
+    # когда образ собран нестандартно.
+    [string] $ImageName,
+
     [switch] $SkipInstallWim
 )
 
@@ -85,8 +95,33 @@ if (-not (Test-Path $sourceInstallWim)) {
     throw "В '$SourceRoot' нет sources\install.wim."
 }
 
+# ---------- что мы вообще собираем: спрашиваем у рецепта ----------
+# Рецепт — единый контракт проекта, и в его схеме записано прямо: всё, что
+# можно выразить там, не должно быть зашито в код. Название и пояснение
+# на первом экране мастера человек прочитает отсюда; если писать их здесь,
+# опись начнёт врать при первом же другом рецепте.
+try {
+    $recipe = Get-Content -LiteralPath $RecipeFile -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+catch {
+    throw "Рецепт '$RecipeFile' не разбирается: $($_.Exception.Message)"
+}
+
+$recipeTitle = $recipe.meta.name
+if ([string]::IsNullOrWhiteSpace($recipeTitle)) {
+    throw "В рецепте '$RecipeFile' нет meta.name — а это название, которое человек увидит на первом экране."
+}
+$recipeDescription = $recipe.meta.description
+
+if ([string]::IsNullOrWhiteSpace($ImageName)) {
+    $ImageName = $recipe.source.windows.imageName
+    if ([string]::IsNullOrWhiteSpace($ImageName)) {
+        throw "В рецепте '$RecipeFile' нет source.windows.imageName, и ключ -ImageName не задан. Издание внутри install.wim определить нечем."
+    }
+}
+
 $imageIndex = Get-ImageIndex -WimPath $sourceInstallWim -WantedName $ImageName
-Write-Host "Издание '$ImageName' лежит в install.wim под номером $imageIndex."
+Write-Host "Рецепт '$recipeTitle': издание '$ImageName' лежит в install.wim под номером $imageIndex."
 
 # ---------- получаем чистый диск ----------
 
@@ -132,7 +167,7 @@ try {
     # ---------- раздел 1: загрузочный ----------
     # Создаётся обычным, чтобы получить букву и дать себя наполнить.
     # Тип «системный EFI» ставится в самом конце: после него буква пропадает.
-    $bootPart = New-Partition -DiskNumber $diskNumber -Size 2GB -GptType $TypeData -AssignDriveLetter
+    $bootPart = New-Partition -DiskNumber $diskNumber -Size $BootPartitionBytes -GptType $TypeData -AssignDriveLetter
     $bootNumber = $bootPart.PartitionNumber
     Format-Volume -Partition (Get-Partition -DiskNumber $diskNumber -PartitionNumber $bootNumber) `
         -FileSystem FAT32 -NewFileSystemLabel 'PEACEBOOT' -Confirm:$false | Out-Null
@@ -160,13 +195,15 @@ try {
     Copy-Item (Join-Path $SourceRoot 'sources\boot.wim') (Join-Path $bootRoot 'sources\boot.wim') -Force
 
     # ---------- данные ----------
-    New-Item -ItemType Directory -Force -Path `
-        (Join-Path $dataRoot 'sources'),
-        (Join-Path $dataRoot 'recipes'),
-        (Join-Path $dataRoot 'WindowsPeace') | Out-Null
+    $appTarget = Join-Path $dataRoot $PeaceMediaLayout.App
+    $imagesTarget = Join-Path $dataRoot $PeaceMediaLayout.Images
+    $recipesTarget = Join-Path $dataRoot $PeaceMediaLayout.Recipes
 
+    New-Item -ItemType Directory -Force -Path $imagesTarget, $recipesTarget, $appTarget | Out-Null
+
+    $installWimRelative = Join-Path $PeaceMediaLayout.Images 'install.wim'
     if (-not $SkipInstallWim) {
-        Copy-Item (Join-Path $SourceRoot 'sources\install.wim') (Join-Path $dataRoot 'sources\install.wim') -Force
+        Copy-Item $sourceInstallWim (Join-Path $dataRoot $installWimRelative) -Force
     }
     else {
         Write-Host 'install.wim пропущен: до шага В образ Windows не нужен.'
@@ -174,32 +211,33 @@ try {
 
     # Папка logs остаётся на хозяйской машине: журнал здешних запусков на носителе
     # выдаёт себя за журнал из WinPE, и разбор идёт по ложному следу.
-    robocopy $AppFolder (Join-Path $dataRoot 'WindowsPeace') /E /R:2 /W:2 /NFL /NDL /NP /XD logs | Out-Null
+    robocopy $AppFolder $appTarget /E /R:2 /W:2 /NFL /NDL /NP /XD $($PeaceMediaLayout.Logs) | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "robocopy приложения завершился с кодом $LASTEXITCODE" }
 
     if ($DiskDumpFolder) {
-        robocopy $DiskDumpFolder (Join-Path $dataRoot 'WindowsPeace\DiskDump') /E /R:2 /W:2 /NFL /NDL /NP | Out-Null
+        robocopy $DiskDumpFolder (Join-Path $appTarget 'DiskDump') /E /R:2 /W:2 /NFL /NDL /NP | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "robocopy DiskDump завершился с кодом $LASTEXITCODE" }
     }
 
-    $recipeName = Split-Path $RecipeFile -Leaf
-    Copy-Item $RecipeFile (Join-Path $dataRoot "recipes\$recipeName") -Force
+    $recipeFileName = Split-Path $RecipeFile -Leaf
+    $recipeRelative = Join-Path $PeaceMediaLayout.Recipes $recipeFileName
+    Copy-Item $RecipeFile (Join-Path $dataRoot $recipeRelative) -Force
 
     # ---------- опись ----------
-    $recipeId = [IO.Path]::GetFileNameWithoutExtension($recipeName) -replace '\.recipe$', ''
+    $recipeId = [IO.Path]::GetFileNameWithoutExtension($recipeFileName) -replace '\.recipe$', ''
     $manifest = [ordered]@{
         schemaVersion = 1
         buildId       = [guid]::NewGuid().ToString()
         createdUtc    = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-        tool          = [ordered]@{ name = 'tools/Media/Build-PeaceMedia.ps1'; version = '0.1.0' }
+        tool          = [ordered]@{ name = 'tools/Media/Build-PeaceMedia.ps1'; version = '0.2.0' }
         recipes       = @(
             [ordered]@{
                 id          = $recipeId
-                name        = 'Atlas 25H2 RU'
-                description = 'Windows 11 Pro 25H2 ru-RU, Atlas, Windhawk'
-                recipeFile  = "recipes\$recipeName"
+                name        = $recipeTitle
+                description = $recipeDescription
+                recipeFile  = $recipeRelative
                 image       = [ordered]@{
-                    file      = 'sources\install.wim'
+                    file      = $installWimRelative
                     index     = $imageIndex
                     imageName = $ImageName
                 }
@@ -207,7 +245,7 @@ try {
         )
     }
     $json = $manifest | ConvertTo-Json -Depth 6
-    [IO.File]::WriteAllText((Join-Path $dataRoot 'windows-peace-media.json'), $json, (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText((Join-Path $dataRoot $PeaceMediaLayout.Manifest), $json, (New-Object Text.UTF8Encoding($false)))
 
     # ---------- загрузочный раздел прячется от человека ----------
     # Смены типа мало: букву Windows запомнила при разметке и сама её не отзывает.

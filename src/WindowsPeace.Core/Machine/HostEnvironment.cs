@@ -14,6 +14,16 @@ public static class HostEnvironment
     /// <summary>Обычное начертание Segoe UI. В образе WinPE его нет — есть жирное, курсив и светлое.</summary>
     public const string SegoeUiRegularFile = "segoeui.ttf";
 
+    /// <summary>
+    /// Оперативный диск WinPE. Сама среда живёт здесь, и буква эта постоянная —
+    /// в отличие от букв носителя, которые каждый раз разные. Всё, что сюда
+    /// записано, гибнет при перезагрузке.
+    /// </summary>
+    public const string RamDriveRoot = @"X:\";
+
+    /// <summary>Папка Windows в предзагрузочной среде: там же, на оперативном диске.</summary>
+    public const string RamDriveWindows = @"X:\Windows";
+
     public static EnvironmentSnapshot Describe(IEnvironmentReader reader) => new()
     {
         OsVersion = reader.OsVersion(),
