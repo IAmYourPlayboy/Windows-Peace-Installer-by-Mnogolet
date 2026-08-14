@@ -21,6 +21,14 @@
 .EXAMPLE
     powershell -File tools/Stand/Show-PeaceApp.ps1 -OutPath app.png -KeepOpen
     Оставляет окно открытым — для проверок через UI Automation.
+
+.EXAMPLE
+    & .\tools\Stand\Show-PeaceApp.ps1 -OutPath app.png -AppArgs @('--media', 'D:\проба')
+    Показывает мастеру опись из указанной папки.
+
+    Вызывать здесь надо через «&», а не через «powershell -File»: последний
+    передаёт массив одной строкой, ключ до мастера не доходит, и выглядит это
+    как будто носитель просто не нашёлся.
 #>
 [CmdletBinding()]
 param(
@@ -28,6 +36,12 @@ param(
     [Parameter(Mandatory = $true)] [string] $OutPath,
     [double] $TimeoutSeconds = 40,
     [double] $StableSeconds = 1.2,
+
+    # Что передать самому мастеру. Например: -AppArgs '--media','D:\проба'
+    # На обычной Windows описи нет нигде, и без этого ключа половину работы
+    # над экранами пришлось бы делать в WinPE.
+    [string[]] $AppArgs = @(),
+
     [switch] $KeepOpen,
     [switch] $NoLog
 )
@@ -49,7 +63,10 @@ if (Test-Path $logPath) {
     Remove-Item $logPath -Force -ErrorAction SilentlyContinue
 }
 
-$process = Start-Process -FilePath $AppPath -WorkingDirectory $appFolder -PassThru
+$start = @{ FilePath = $AppPath; WorkingDirectory = $appFolder; PassThru = $true }
+if ($AppArgs.Count -gt 0) { $start.ArgumentList = $AppArgs }
+
+$process = Start-Process @start
 Write-Host "Мастер запущен, номер процесса $($process.Id)."
 
 try {

@@ -42,6 +42,18 @@ powershell -File tools\Stand\Show-PeaceApp.ps1 -OutPath D:\WindowsPeace-Stand\ap
 
 Ключ `-KeepOpen` оставляет окно — тогда с ним можно поговорить через UI Automation.
 
+На обычной Windows описи носителя нет нигде, поэтому мастер принимает
+отладочный ключ `--media`:
+
+```powershell
+& .\tools\Stand\Show-PeaceApp.ps1 -OutPath D:\WindowsPeace-Stand\app.png -AppArgs @('--media', 'D:\проба')
+```
+
+Папка должна содержать `windows-peace-media.json` — годится копия
+из `contract\examples\one-recipe.media.json`. **Вызывать через `&`,
+а не через `powershell -File`:** последний передаёт массив одной строкой,
+ключ до мастера не доходит, и выглядит это как будто носитель не нашёлся.
+
 ### Круг в WinPE
 
 ```powershell

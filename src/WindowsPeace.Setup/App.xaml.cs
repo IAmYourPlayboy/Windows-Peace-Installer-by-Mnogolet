@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
@@ -78,6 +79,8 @@ public partial class App : Application
 
         var probe = new RealFileSystemProbe();
 
+        DescribeMedia(e.Args, snapshot, probe);
+
         // Прямой разговор с Windows вместо WMI: библиотека System.Management
         // в WinPE не работает, она подгружает модуль из .NET Framework, которого
         // там нет. Проверено опытом, см. docs/superpowers/notes/2026-08-14-step-b-pe-experiments.md.
@@ -103,13 +106,72 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// Находит носитель и записывает в журнал, что удалось из него прочитать.
+    /// Экрана для этого пока нет — он появится следующей задачей, — но знать,
+    /// нашлась ли опись на настоящем носителе, надо уже сейчас: без записи
+    /// в журнале это выяснялось бы только глазами по картинке.
+    /// </summary>
+    private void DescribeMedia(string[] args, EnvironmentSnapshot snapshot, IFileSystemProbe probe)
+    {
+        var media = LocateMedia(args, snapshot, probe);
+        if (media is null)
+        {
+            Checkpoint("Носитель не найден", "Описи нет ни на одном томе: " + string.Join(" ", snapshot.VolumeRoots),
+                OperationOutcome.Failure);
+            return;
+        }
+
+        var manifest = media.Load(new FileTextReader());
+        var detail = manifest.Status == MediaManifestStatus.Ok
+            ? string.Format(CultureInfo.CurrentCulture, "{0}; рецептов: {1}",
+                media.ManifestPath, manifest.Manifest!.Recipes.Count)
+            : string.Format(CultureInfo.CurrentCulture, "{0}; {1}", media.ManifestPath, manifest.Message);
+
+        Checkpoint("Чтение описи: " + manifest.Status, detail,
+            manifest.Status == MediaManifestStatus.Ok ? OperationOutcome.Success : OperationOutcome.Failure);
+    }
+
+    /// <summary>
+    /// Где искать опись. На обычной Windows её нет нигде, поэтому мастер
+    /// принимает отладочный ключ «--media папка» и берёт опись оттуда:
+    /// иначе работать над экранами пришлось бы, перезагружаясь в WinPE.
+    /// В обычном ходе работы ключ не используется.
+    /// </summary>
+    private MediaLocation? LocateMedia(string[] args, EnvironmentSnapshot snapshot, IFileSystemProbe probe)
+    {
+        var forced = ReadOption(args, "--media");
+        if (forced is not null)
+        {
+            Checkpoint("Отладочный ключ --media", forced);
+            return new MediaLocation(forced);
+        }
+
+        // Тома, а не диски: их список уже снят, а перечисление дисков идёт
+        // своим чередом, и ждать его ради описи незачем.
+        return BootMediaLocator.FindAmong(snapshot.VolumeRoots, probe);
+    }
+
+    private static string? ReadOption(string[] args, string name)
+    {
+        for (var i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], name, StringComparison.Ordinal))
+            {
+                return args[i + 1];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Контрольная точка старта. В WinPE падение до окна не оставляет ничего,
     /// кроме журнала: по этим записям видно, на каком шаге всё оборвалось
     /// и сколько времени прошло до него.
     /// </summary>
-    private void Checkpoint(string what, string? detail)
+    private void Checkpoint(string what, string? detail, OperationOutcome outcome = OperationOutcome.Success)
         => _journal.Write(new OperationRecord(
-            DateTimeOffset.Now, "Setup.Startup", what, _sinceStart.Elapsed, OperationOutcome.Success, detail));
+            DateTimeOffset.Now, "Setup.Startup", what, _sinceStart.Elapsed, outcome, detail));
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         => _journal.Write(new OperationRecord(

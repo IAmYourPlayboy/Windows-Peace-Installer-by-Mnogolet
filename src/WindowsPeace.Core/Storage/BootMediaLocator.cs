@@ -37,4 +37,43 @@ public static class BootMediaLocator
             }
         }
     }
+
+    /// <summary>
+    /// Первый найденный носитель, либо ничего. Пометку дисков не трогает:
+    /// пометить их надо все, а работаем мы с одним.
+    /// </summary>
+    public static MediaLocation? Find(IReadOnlyList<DiskInfo> disks, IFileSystemProbe probe)
+    {
+        var roots = new List<string>();
+        foreach (var disk in disks)
+        {
+            foreach (var partition in disk.Partitions)
+            {
+                if (partition.DriveLetter is not null)
+                {
+                    roots.Add(string.Format(CultureInfo.InvariantCulture, "{0}:\\", partition.DriveLetter.Value));
+                }
+            }
+        }
+
+        return FindAmong(roots, probe);
+    }
+
+    /// <summary>
+    /// То же самое, но по готовому списку корней. Нужно на старте: список
+    /// томов известен сразу, а перечисление дисков идёт своим чередом
+    /// и ждать его ради описи незачем.
+    /// </summary>
+    public static MediaLocation? FindAmong(IReadOnlyList<string> volumeRoots, IFileSystemProbe probe)
+    {
+        foreach (var root in volumeRoots)
+        {
+            if (probe.FileExists(Path.Combine(root, ManifestFileName)))
+            {
+                return new MediaLocation(root);
+            }
+        }
+
+        return null;
+    }
 }
