@@ -24,12 +24,19 @@ Set-StrictMode -Version Latest
     Языка два, поэтому и мест два, но внутри каждого — одно.
 #>
 $PeaceMediaLayout = @{
-    Manifest = 'windows-peace-media.json'
-    App      = 'WindowsPeace'
-    Recipes  = 'recipes'
-    Images   = 'sources'
-    Logs     = 'logs'
-    LogFile  = 'windows-peace.jsonl'
+    Manifest       = 'windows-peace-media.json'
+    App            = 'WindowsPeace'
+    Recipes        = 'recipes'
+    Images         = 'sources'
+    Logs           = 'logs'
+    LogFile        = 'windows-peace.jsonl'
+
+    # Отладочная утилита сличения дисков. Кладётся не всегда — только когда
+    # сборке или обновлению явно передали -DiskDumpFolder. Живёт внутри папки
+    # приложения; в корне носителя рядом ложится короткий запуск DiskDumpLauncher.
+    DiskDump       = 'DiskDump'
+    DiskDumpExe    = 'DiskDump.exe'
+    DiskDumpLauncher = 'diskdump.cmd'
 }
 
 function Assert-PeaceAdmin {
@@ -109,6 +116,44 @@ function Copy-PeaceTree {
     if ($code -ge 8) {
         throw "Копирование $What из '$Source' в '$Target' завершилось с кодом $code."
     }
+}
+
+function Set-PeaceDiskDumpLauncher {
+    <#
+    .SYNOPSIS
+        Положить в корень носителя короткий запуск сличения дисков.
+
+    .DESCRIPTION
+        На живом железе мастер поднимается сам, а командная строка появляется
+        только после его выхода — и запускается не из папки носителя, буква
+        которого в WinPE непредсказуема. Поэтому сам DiskDump находит носитель
+        через %~dp0 (папку этого файла), а человеку остаётся набрать короткое
+        имя. Запуск ложится рядом с DiskDump, только когда тот вообще кладётся.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [string] $Root
+    )
+
+    # Путь к утилите — относительный, от корня носителя. Собирается из имён
+    # раскладки, чтобы не разойтись с тем, куда DiskDump на самом деле лёг.
+    $exeRelative = Join-Path (Join-Path $PeaceMediaLayout.App $PeaceMediaLayout.DiskDump) $PeaceMediaLayout.DiskDumpExe
+
+    # Команды в файле — только ASCII (путь к exe), кириллица лишь в пояснениях,
+    # которые не печатаются. Так же устроен peace-launch.cmd, и в WinPE он читается.
+    $body = @"
+@echo off
+rem Короткий запуск сличения дисков этой машины. Утилита лежит в папке
+rem приложения рядом; путь берётся от самого этого файла (%~dp0), поэтому
+rem буква носителя в WinPE значения не имеет. Вывод идёт и на экран, и в файл
+rem disk-dump.txt рядом с утилитой — в WinPE это единственное, что переживёт
+rem перезагрузку.
+"%~dp0$exeRelative" %*
+"@
+
+    $launcherPath = Join-Path $Root $PeaceMediaLayout.DiskDumpLauncher
+    [IO.File]::WriteAllText($launcherPath, $body, (New-Object Text.UTF8Encoding($false)))
+    Write-Host "Короткий запуск сличения дисков: $launcherPath" -ForegroundColor Green
 }
 
 function Get-PeaceVhdxHolder {
@@ -291,11 +336,12 @@ function Update-PeaceMediaApp {
         # запусков на хозяйской машине уезжает на носитель и выдаёт себя
         # за журнал из WinPE — однажды это уже сбило с толку.
         Copy-PeaceTree -Source $appFull -Target $target -What 'приложения' `
-            -Options @('/MIR', '/XD', 'DiskDump', $PeaceMediaLayout.Logs)
+            -Options @('/MIR', '/XD', $PeaceMediaLayout.DiskDump, $PeaceMediaLayout.Logs)
 
         if ($dumpFull) {
-            Copy-PeaceTree -Source $dumpFull -Target (Join-Path $target 'DiskDump') `
+            Copy-PeaceTree -Source $dumpFull -Target (Join-Path $target $PeaceMediaLayout.DiskDump) `
                 -What 'отладочной утилиты' -Options @('/MIR')
+            Set-PeaceDiskDumpLauncher -Root $root
         }
 
         # Папка logs исключена из зеркалирования, а значит и не стирается им.
@@ -372,5 +418,5 @@ function Get-PeaceMediaLog {
 }
 
 Export-ModuleMember -Variable PeaceMediaLayout -Function Assert-PeaceAdmin, Copy-PeaceTree,
-    Get-PeaceVhdxHolder, Assert-PeaceVhdxFree, Get-PeaceMediaDataRoot, Use-PeaceMedia,
-    Update-PeaceMediaApp, Get-PeaceMediaLog
+    Set-PeaceDiskDumpLauncher, Get-PeaceVhdxHolder, Assert-PeaceVhdxFree, Get-PeaceMediaDataRoot,
+    Use-PeaceMedia, Update-PeaceMediaApp, Get-PeaceMediaLog

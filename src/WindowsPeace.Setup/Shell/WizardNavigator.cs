@@ -11,9 +11,16 @@ namespace WindowsPeace.Setup.Shell;
 public sealed class WizardNavigator
 {
     private readonly IReadOnlyList<IWizardPage> _pages;
+    private readonly Action<IWizardPage>? _onEntered;
     private int _index;
 
-    public WizardNavigator(IReadOnlyList<IWizardPage> pages)
+    /// <param name="onEntered">
+    /// Вызывается на каждом входе на страницу — при создании и при каждом переходе.
+    /// Нужен, чтобы весь проход по экранам уходил в журнал: в WinPE после
+    /// перезагрузки это единственное свидетельство того, что человек прошёл.
+    /// Холостой переход (уходить некуда) входом не считается и сюда не приходит.
+    /// </param>
+    public WizardNavigator(IReadOnlyList<IWizardPage> pages, Action<IWizardPage>? onEntered = null)
     {
         if (pages.Count == 0)
         {
@@ -21,13 +28,14 @@ public sealed class WizardNavigator
         }
 
         _pages = pages;
+        _onEntered = onEntered;
 
         foreach (var page in _pages)
         {
             page.CanGoNextChanged += OnPageReadinessChanged;
         }
 
-        Current.OnEnter();
+        EnterCurrent();
     }
 
     public IWizardPage Current => _pages[_index];
@@ -48,7 +56,7 @@ public sealed class WizardNavigator
         }
 
         _index++;
-        Current.OnEnter();
+        EnterCurrent();
         CurrentChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -60,8 +68,19 @@ public sealed class WizardNavigator
         }
 
         _index--;
-        Current.OnEnter();
+        EnterCurrent();
         CurrentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Вход на текущую страницу: сама страница узнаёт об этом через OnEnter,
+    /// а наблюдатель — через onEntered. Собрано в одном месте, чтобы то и другое
+    /// случалось ровно один раз на вход и в одном и том же порядке.
+    /// </summary>
+    private void EnterCurrent()
+    {
+        Current.OnEnter();
+        _onEntered?.Invoke(Current);
     }
 
     private void OnPageReadinessChanged(object? sender, EventArgs e)

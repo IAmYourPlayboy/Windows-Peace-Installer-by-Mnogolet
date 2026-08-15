@@ -9,9 +9,9 @@ public sealed class ShellViewModel : ViewModelBase
     private readonly WizardNavigator _navigator;
 
     /// <param name="closeWizard">
-    /// Выход из мастера. Он один на все экраны и всегда в одном и том же углу:
-    /// в WinPE окно занимает весь экран и крестика на нём нет, а искать выход
-    /// в разных местах разных экранов человек не должен.
+    /// Выход из мастера. Он один на все экраны и всегда на одном месте, в нижнем
+    /// ряду оболочки: в WinPE окно занимает весь экран и крестика на нём нет,
+    /// а искать выход в разных местах разных экранов человек не должен.
     /// </param>
     public ShellViewModel(WizardNavigator navigator, Action closeWizard)
     {

@@ -222,8 +222,9 @@ try {
         -Options @('/E', '/XD', $PeaceMediaLayout.Logs)
 
     if ($DiskDumpFolder) {
-        Copy-PeaceTree -Source $DiskDumpFolder -Target (Join-Path $appTarget 'DiskDump') `
+        Copy-PeaceTree -Source $DiskDumpFolder -Target (Join-Path $appTarget $PeaceMediaLayout.DiskDump) `
             -What 'отладочной утилиты' -Options @('/E')
+        Set-PeaceDiskDumpLauncher -Root $dataRoot
     }
 
     $recipeFileName = Split-Path $RecipeFile -Leaf

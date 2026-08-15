@@ -23,18 +23,20 @@
         <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" Focusable="False" />
 
         <Grid Grid.Row="2" Margin="0,16,0,0">
-            <!--
-                Выход один на все экраны и всегда здесь, в противоположном углу
-                от «Далее»: случайно нажать его вместо перехода нельзя, а искать
-                его в разных местах разных экранов человек не должен. В WinPE
-                окно занимает весь экран и крестика на нём нет — без этой кнопки
-                оставалось бы выключить машину из розетки.
-            -->
-            <Button Content="Закрыть мастер" Command="{Binding CloseCommand}"
-                    AutomationProperties.AutomationId="Close"
-                    HorizontalAlignment="Left" Height="34" Padding="12,0" />
-
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <!--
+                    Выход один на все экраны и всегда здесь. В WinPE окно занимает
+                    весь экран и крестика на нём нет — без этой кнопки оставалось бы
+                    выключить машину из розетки, а такой кнопки в установщике
+                    Microsoft человек не видел и искать её в углу не догадается.
+                    Поэтому она подписана прямо, «Выйти из установщика», и стоит
+                    в нижнем ряду вместе с переходами. От «Далее» её отделяет и
+                    «Назад», и заметный зазор: задеть выход вместо перехода нельзя.
+                -->
+                <Button Content="Выйти из установщика" Command="{Binding CloseCommand}"
+                        AutomationProperties.AutomationId="Close"
+                        Height="34" Padding="12,0" Margin="0,0,32,0" />
+
                 <Button Content="Назад" Command="{Binding BackCommand}"
                         AutomationProperties.AutomationId="Back"
                         MinWidth="120" Height="34" Padding="12,0" Margin="0,0,12,0" />

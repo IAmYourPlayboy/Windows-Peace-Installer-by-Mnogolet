@@ -71,14 +71,19 @@ public partial class App : Application
 
         Checkpoint("Модели экранов созданы", null);
 
-        var navigator = new WizardNavigator(new List<IWizardPage>
-        {
-            recipePicker,
-            diskPicker,
-            new ConfirmViewModel(choice),
-            new ProgressViewModel(),
-            new DoneViewModel(),
-        });
+        // Весь проход по экранам уходит в журнал: в WinPE после перезагрузки
+        // это единственное свидетельство, что человек прошёл вперёд и назад.
+        // Без него пункт приёмки о переходах держался бы на памяти проверяющего.
+        var navigator = new WizardNavigator(
+            new List<IWizardPage>
+            {
+                recipePicker,
+                diskPicker,
+                new ConfirmViewModel(choice),
+                new ProgressViewModel(),
+                new DoneViewModel(),
+            },
+            ScreenEntered);
 
         var window = new ShellWindow(snapshot.IsWindowsPe)
         {
@@ -208,6 +213,16 @@ public partial class App : Application
     private void Checkpoint(string what, string? detail, OperationOutcome outcome = OperationOutcome.Success)
         => _journal.Write(new OperationRecord(
             DateTimeOffset.Now, "Setup.Startup", what, _sinceStart.Elapsed, outcome, detail));
+
+    /// <summary>
+    /// Вход на экран мастера. Отдельный компонент от стартовых точек: старт —
+    /// это подъём среды, а это уже сам проход, и по журналу их надо различать.
+    /// Имя экрана — то же, что видит человек в заголовке.
+    /// </summary>
+    private void ScreenEntered(IWizardPage page)
+        => _journal.Write(new OperationRecord(
+            DateTimeOffset.Now, "Setup.Navigation", "Открыт экран", _sinceStart.Elapsed,
+            OperationOutcome.Success, page.Title));
 
     /// <summary>
     /// Неожиданная ошибка в окне. Стандартное окно .NET показало бы человеку
