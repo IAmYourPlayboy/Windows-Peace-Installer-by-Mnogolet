@@ -357,10 +357,31 @@ WindowsPeace/
     └─ superpowers/  specs/, plans/, notes/
 ```
 
+Пять коммитов этой сессии, снизу вверх:
+
+```
+95458d1 Экран «Проверьте и подтвердите»: последнее место, где можно отступить
+d7507df Стенд научился ходить по экранам, и по дороге нашлись три дефекта
+febd44b Пять экранов, полный экран в WinPE и один выход вместо трёх
+2714e19 Опыт 3: мастер запускается сам, установщик Windows подменён
+1f45395 Настоящая флешка собрана, расход памяти замерен, передача переписана
+```
+
 Команды, которые понадобятся сразу:
 
 ```powershell
-dotnet test                                          прогнать все тесты
-& .\tools\Stand\Invoke-PeaceRound.ps1                круг в WinPE
-& .\tools\Stand\Show-PeaceApp.ps1 -OutPath D:\WindowsPeace-Stand\app.png -Advance 4
+dotnet test
 ```
+
+```powershell
+& .\tools\Stand\Show-PeaceApp.ps1 -OutPath D:\WindowsPeace-Stand\app.png -Advance 4 -TypeText 'ST1000DM010-2EP102' -AppArgs @('--media', 'D:\WindowsPeace-Stand\fake-media')
+```
+
+```powershell
+& .\tools\Stand\Invoke-PeaceRound.ps1 -Then '{Tab}','{Down}','{Space}','{Enter}','{Tab}','{Down}','{Space}','{Enter}','Msft Virtual Disk','{Enter}','{Enter}'
+```
+
+Последняя проходит в WinPE все пять экранов: на каждом списке `{Tab}` `{Down}`
+`{Space}` выбирают первую доступную строку, `{Enter}` жмёт кнопку перехода,
+а на сводке набирается модель диска. **Вызывать через `&`**, иначе массив
+дойдёт одной строкой — это уже ловило.
