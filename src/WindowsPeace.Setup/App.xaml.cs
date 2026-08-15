@@ -63,12 +63,18 @@ public partial class App : Application
             new FileSystemContentInspector(probe),
             probe);
 
+        // Сводка перед установкой собирается не здесь, а при входе на неё:
+        // в этот момент диск ещё не выбран. Посредник знает оба первых экрана,
+        // поэтому сама сводка не знает ни одного.
+        var choice = new WizardChoice(recipePicker, diskPicker);
+
         Checkpoint("Модели экранов созданы", null);
 
         var navigator = new WizardNavigator(new List<IWizardPage>
         {
             recipePicker,
             diskPicker,
+            new ConfirmViewModel(choice),
             new PlaceholderViewModel(),
         });
 

@@ -66,7 +66,7 @@ public sealed class DiskRowViewModel
             disk.FriendlyName,
             ByteSize.Format(disk.Identity.SizeBytes),
             string.Empty,
-            DescribeBus(disk),
+            DiskDescription.Bus(disk),
             DescribeDisk(disk));
 
     public static DiskRowViewModel ForPartition(DiskInfo disk, PartitionInfo partition)
@@ -99,19 +99,6 @@ public sealed class DiskRowViewModel
         PartitionKind.BasicData => "Основной",
         _ => "Неизвестный",
     };
-
-    private static string DescribeBus(DiskInfo disk)
-    {
-        var media = disk.Media switch
-        {
-            MediaKind.Ssd => "SSD",
-            MediaKind.Hdd => "HDD",
-            MediaKind.Scm => "SCM",
-            _ => string.Empty,
-        };
-
-        return (disk.Identity.BusType + " " + media).Trim();
-    }
 
     private static string DescribeDisk(DiskInfo disk)
     {

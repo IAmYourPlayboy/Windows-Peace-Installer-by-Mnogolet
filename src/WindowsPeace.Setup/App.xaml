@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:pages="clr-namespace:WindowsPeace.Setup.Pages"
-             xmlns:infrastructure="clr-namespace:WindowsPeace.Setup.Infrastructure">
+             xmlns:infrastructure="clr-namespace:WindowsPeace.Setup.Infrastructure"
+             xmlns:selection="clr-namespace:WindowsPeace.Core.Selection;assembly=WindowsPeace.Core">
     <Application.Resources>
         <!--
             Преобразователи общие на всё приложение: одинаковых сущностей
@@ -19,11 +20,36 @@
         -->
         <SolidColorBrush x:Key="TroubleBrush" Color="#B00020" />
 
+        <!--
+            Предупреждение выглядит одинаково везде, где показывается: при выборе
+            диска и в сводке перед установкой. Два шаблона на одну сущность
+            разъехались бы, и об одной и той же беде человек читал бы по-разному.
+            Важное отличается цветом: «здесь будут потери» и «прими к сведению» —
+            это разные вещи, и различать их человек должен не вчитываясь.
+        -->
+        <DataTemplate DataType="{x:Type selection:PlanWarning}">
+            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0,0,0,6">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Severity}"
+                                         Value="{x:Static selection:WarningSeverity.Important}">
+                                <Setter Property="Foreground" Value="{StaticResource TroubleBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </DataTemplate>
+
         <DataTemplate DataType="{x:Type pages:RecipePickerViewModel}">
             <pages:RecipePickerPage />
         </DataTemplate>
         <DataTemplate DataType="{x:Type pages:DiskPickerViewModel}">
             <pages:DiskPickerPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type pages:ConfirmViewModel}">
+            <pages:ConfirmPage />
         </DataTemplate>
         <DataTemplate DataType="{x:Type pages:PlaceholderViewModel}">
             <pages:PlaceholderPage />

@@ -53,6 +53,12 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 
     public ObservableCollection<PlanWarning> Warnings { get; } = new();
 
+    /// <summary>
+    /// Все диски машины, как их вернул последний опрос. Нужны не только этому
+    /// экрану: по ним правила выбора смотрят, не стоит ли Windows на соседнем.
+    /// </summary>
+    public IReadOnlyList<DiskInfo> Disks => _disks;
+
     public RelayCommand RefreshCommand { get; }
 
     public RelayCommand CancelCommand { get; }

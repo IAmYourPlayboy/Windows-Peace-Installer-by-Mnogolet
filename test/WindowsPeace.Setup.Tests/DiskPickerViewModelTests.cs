@@ -61,18 +61,10 @@ internal sealed class EmptyFileSystem : IFileSystemProbe
 
 public class DiskPickerViewModelTests
 {
-    private const ulong Gib = 1024UL * 1024UL * 1024UL;
+    private const ulong Gib = TestDisks.Gib;
 
     private static DiskInfo Disk(string serial, ulong size, bool isSystem = false, IReadOnlyList<PartitionInfo>? partitions = null)
-    {
-        var list = partitions ?? new List<PartitionInfo>();
-        return new DiskInfo(
-            DiskIdentity.Create(serial, null, null, null, null, "Диск " + serial, size, BusType.Nvme),
-            number: 0, friendlyName: "Диск " + serial, media: MediaKind.Ssd,
-            partitionStyle: PartitionStyle.Gpt, isSystem: isSystem, isBoot: false,
-            isOffline: false, isReadOnly: false, isRemovable: false,
-            partitions: list, freeSpaces: FreeSpaceCalculator.Calculate(size, list), probeError: null);
-    }
+        => TestDisks.Disk(serial, size, isSystem, partitions, model: "Диск " + serial);
 
     private static async Task<DiskPickerViewModel> CreateAsync(params DiskInfo[] disks)
     {

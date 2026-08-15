@@ -23,6 +23,9 @@ public sealed class ShellViewModel : ViewModelBase
 
     public string Title => _navigator.Current.Title;
 
+    /// <summary>Что написано на кнопке перехода вперёд. Слово даёт сама страница.</summary>
+    public string NextTitle => _navigator.Current.NextTitle;
+
     public RelayCommand BackCommand { get; }
 
     public RelayCommand NextCommand { get; }
@@ -31,6 +34,7 @@ public sealed class ShellViewModel : ViewModelBase
     {
         Raise(nameof(CurrentPage));
         Raise(nameof(Title));
+        Raise(nameof(NextTitle));
         OnReadinessChanged(sender, e);
     }
 
