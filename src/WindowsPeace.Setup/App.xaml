@@ -51,8 +51,11 @@
         <DataTemplate DataType="{x:Type pages:ConfirmViewModel}">
             <pages:ConfirmPage />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type pages:PlaceholderViewModel}">
-            <pages:PlaceholderPage />
+        <DataTemplate DataType="{x:Type pages:ProgressViewModel}">
+            <pages:ProgressPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type pages:DoneViewModel}">
+            <pages:DonePage />
         </DataTemplate>
     </Application.Resources>
 </Application>

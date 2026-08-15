@@ -32,7 +32,7 @@ public sealed class WizardNavigator
 
     public IWizardPage Current => _pages[_index];
 
-    public bool CanGoBack => _index > 0;
+    public bool CanGoBack => _index > 0 && Current.CanGoBack;
 
     public bool CanGoNext => _index < _pages.Count - 1 && Current.CanGoNext;
 

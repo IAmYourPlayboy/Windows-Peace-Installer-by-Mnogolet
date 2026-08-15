@@ -21,8 +21,8 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
 
     private RecipeRowViewModel? _selectedRow;
 
-    public RecipePickerViewModel(MediaManifestResult result, Action closeWizard)
-        : this(result.Message, closeWizard)
+    public RecipePickerViewModel(MediaManifestResult result)
+        : this(result.Message)
     {
         if (result.Status != MediaManifestStatus.Ok)
         {
@@ -35,14 +35,9 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
         }
     }
 
-    private RecipePickerViewModel(string trouble, Action closeWizard)
+    private RecipePickerViewModel(string trouble)
     {
         Trouble = trouble;
-
-        // Кнопка нужна только в тупике. В WinPE окно занимает весь экран
-        // и креста на нём нет: не предложи мы выход — человеку осталось бы
-        // только обесточить машину.
-        CloseCommand = new RelayCommand(closeWizard, () => HasTrouble);
     }
 
     /// <summary>
@@ -50,9 +45,8 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
     /// человеку у флешки этот список ничего не объясняет, а разбираться по нему
     /// будем мы.
     /// </summary>
-    public static RecipePickerViewModel WithoutMedia(Action closeWizard)
-        => new("Носитель Windows Peace не найден: похоже, мастер запущен не с него. Ставить отсюда нечего.",
-            closeWizard);
+    public static RecipePickerViewModel WithoutMedia()
+        => new("Носитель Windows Peace не найден: похоже, мастер запущен не с него. Ставить отсюда нечего.");
 
     public string Title => "Что ставим?";
 
@@ -69,9 +63,6 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
     public string Trouble { get; }
 
     public bool HasTrouble => !string.IsNullOrEmpty(Trouble);
-
-    /// <summary>Выход из тупика. Доступна только тогда, когда идти дальше некуда.</summary>
-    public RelayCommand CloseCommand { get; }
 
     public RecipeRowViewModel? SelectedRow
     {

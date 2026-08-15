@@ -77,16 +77,30 @@ function Get-PeaceElements {
 function Get-PeaceButton {
     <#
     .SYNOPSIS
-        Кнопка по надписи. Отсутствие кнопки — не отказ, а ответ: $null.
+        Кнопка по надписи или по неизменной метке. Отсутствие кнопки — не отказ,
+        а ответ: $null.
+
+    .DESCRIPTION
+        Надпись на кнопке перехода даёт сама страница: после сводки это
+        «Установить», а не «Далее». Искать такую кнопку по слову нельзя —
+        для того у неё и есть метка, которая не меняется.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ByName')]
     param(
         [Parameter(Mandatory = $true)] [System.Windows.Automation.AutomationElement] $Root,
-        [Parameter(Mandatory = $true)] [string] $Name
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByName')] [string] $Name,
+        [Parameter(Mandatory = $true, ParameterSetName = 'ById')] [string] $AutomationId
     )
 
     foreach ($element in (Get-PeaceElements -Root $Root -Ability Invokable -IncludeDisabled)) {
-        if ($element.Current.Name -eq $Name) { return $element }
+        $matched = if ($PSCmdlet.ParameterSetName -eq 'ById') {
+            $element.Current.AutomationId -eq $AutomationId
+        }
+        else {
+            $element.Current.Name -eq $Name
+        }
+
+        if ($matched) { return $element }
     }
 
     $null
@@ -119,6 +133,21 @@ function Wait-PeaceUiaCondition {
     $null
 }
 
+function Select-PeaceItem {
+    <#
+    .SYNOPSIS
+        Выбрать эту строку списка. Отдаёт её название — тем самым видно,
+        что именно выбралось.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [System.Windows.Automation.AutomationElement] $Item
+    )
+
+    $Item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $Item.Current.Name
+}
+
 function Select-PeaceFirstItem {
     <#
     .SYNOPSIS
@@ -141,9 +170,52 @@ function Select-PeaceFirstItem {
 
     if (-not $item) { throw "За $TimeoutSeconds с в списке не появилось ни одной доступной строки." }
 
-    $pattern = $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-    $pattern.Select()
-    $item.Current.Name
+    Select-PeaceItem -Item $item
+}
+
+function Wait-PeaceScreenReady {
+    <#
+    .SYNOPSIS
+        Дождаться, пока экран станет годен к тому, чтобы с него уйти вперёд.
+
+    .DESCRIPTION
+        Годен он тогда, когда на нём появилось, с чем работать: строка, которую
+        можно выбрать, поле, куда можно вписать, — или кнопка перехода ожила
+        и без того и другого.
+
+        Списки наполняются не сразу: диски опрашиваются в стороннем потоке.
+        Разделять экраны по именам нельзя — их станет больше, а признак
+        «есть с чем работать» верен для любого.
+
+    .OUTPUTS
+        Объект с полями Item и Field: строка для выбора и поле ввода, каждое
+        может быть $null. $null целиком — не дождались.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [System.Windows.Automation.AutomationElement] $Root,
+        [string] $NextAutomationId = 'Next',
+        [double] $TimeoutSeconds = 20
+    )
+
+    Wait-PeaceUiaCondition -TimeoutSeconds $TimeoutSeconds -Probe {
+        $items = Get-PeaceElements -Root $Root -Ability Selectable
+        $fields = Get-PeaceElements -Root $Root -Ability Editable
+
+        if ($items.Count -gt 0 -or $fields.Count -gt 0) {
+            return [pscustomobject]@{
+                Item  = if ($items.Count -gt 0) { $items[0] } else { $null }
+                Field = if ($fields.Count -gt 0) { $fields[0] } else { $null }
+            }
+        }
+
+        $next = Get-PeaceButton -Root $Root -AutomationId $NextAutomationId
+        if ($next -and $next.Current.IsEnabled) {
+            return [pscustomobject]@{ Item = $null; Field = $null }
+        }
+
+        $null
+    }
 }
 
 function Invoke-PeaceButton {
@@ -155,23 +227,34 @@ function Invoke-PeaceButton {
         Ожидание здесь — половина проверки: кнопка оживает тогда и только тогда,
         когда модель экрана приняла выбор и сказала об этом оболочке.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ByName')]
     param(
         [Parameter(Mandatory = $true)] [System.Windows.Automation.AutomationElement] $Root,
-        [Parameter(Mandatory = $true)] [string] $Name,
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByName')] [string] $Name,
+        [Parameter(Mandatory = $true, ParameterSetName = 'ById')] [string] $AutomationId,
         [double] $TimeoutSeconds = 20
     )
 
+    $find = if ($PSCmdlet.ParameterSetName -eq 'ById') {
+        { Get-PeaceButton -Root $Root -AutomationId $AutomationId }
+    }
+    else {
+        { Get-PeaceButton -Root $Root -Name $Name }
+    }
+
     $button = Wait-PeaceUiaCondition -TimeoutSeconds $TimeoutSeconds -Probe {
-        $candidate = Get-PeaceButton -Root $Root -Name $Name
+        $candidate = & $find
         if ($candidate -and $candidate.Current.IsEnabled) { $candidate } else { $null }
     }
 
     if (-not $button) {
-        throw "Кнопка «$Name» не ожила за $TimeoutSeconds с. Выбор до модели экрана не дошёл."
+        $what = if ($PSCmdlet.ParameterSetName -eq 'ById') { "с меткой «$AutomationId»" } else { "«$Name»" }
+        throw "Кнопка $what не ожила за $TimeoutSeconds с. Выбор до модели экрана не дошёл."
     }
 
+    $name = $button.Current.Name
     $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $name
 }
 
 function Set-PeaceText {
@@ -223,4 +306,5 @@ function Get-PeaceScreenText {
 }
 
 Export-ModuleMember -Function Get-PeaceWindowElement, Get-PeaceElements, Get-PeaceButton,
-    Wait-PeaceUiaCondition, Select-PeaceFirstItem, Invoke-PeaceButton, Set-PeaceText, Get-PeaceScreenText
+    Wait-PeaceUiaCondition, Wait-PeaceScreenReady, Select-PeaceItem, Select-PeaceFirstItem,
+    Invoke-PeaceButton, Set-PeaceText, Get-PeaceScreenText

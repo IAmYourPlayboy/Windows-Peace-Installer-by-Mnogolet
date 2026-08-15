@@ -21,6 +21,13 @@ public interface IWizardPage
     /// <summary>Можно ли уходить со страницы вперёд.</summary>
     bool CanGoNext { get; }
 
+    /// <summary>
+    /// Можно ли вернуться с этой страницы назад. По умолчанию да; страницы,
+    /// после которых работа уже началась, отвечают «нет» — возвращаться
+    /// оттуда некуда, и предлагать это значило бы врать.
+    /// </summary>
+    bool CanGoBack => true;
+
     event EventHandler CanGoNextChanged;
 
     /// <summary>Вызывается каждый раз при появлении страницы.</summary>

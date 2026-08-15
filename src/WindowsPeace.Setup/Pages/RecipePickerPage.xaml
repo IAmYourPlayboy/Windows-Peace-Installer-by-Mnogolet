@@ -15,23 +15,17 @@
         <!--
             Беда с носителем показывается выше списка и не прячется за него:
             когда ставить нечего, человек должен прочитать почему, а не гадать
-            над пустой таблицей. Выход отсюда только один, и он рядом с текстом —
-            в WinPE окно занимает весь экран, и креста, чтобы закрыть, на нём нет.
-        -->
-        <StackPanel Grid.Row="1"
-                    Visibility="{Binding HasTrouble, Converter={StaticResource BoolToVisibility}}">
-            <!--
-                Только объяснение своими словами. Техническая причина — текст
-                разборщика, отказ файловой системы — на экран не выносится
-                и целиком уходит в журнал: разбираться в наших ошибках человеку
-                у флешки незачем, это наша работа. Решение автора.
-            -->
-            <TextBlock Text="{Binding Trouble}" TextWrapping="Wrap"
-                       Foreground="{StaticResource TroubleBrush}" />
+            над пустой таблицей. Выход из тупика есть всегда — кнопка «Закрыть
+            мастер» в углу оболочки, одна и та же на всех экранах.
 
-            <Button Content="Закрыть мастер" Command="{Binding CloseCommand}"
-                    HorizontalAlignment="Left" Margin="0,16,0,0" Padding="10,4" />
-        </StackPanel>
+            Только объяснение своими словами. Техническая причина — текст
+            разборщика, отказ файловой системы — на экран не выносится
+            и целиком уходит в журнал: разбираться в наших ошибках человеку
+            у флешки незачем, это наша работа. Решение автора.
+        -->
+        <TextBlock Grid.Row="1" Text="{Binding Trouble}" TextWrapping="Wrap"
+                   Foreground="{StaticResource TroubleBrush}"
+                   Visibility="{Binding HasTrouble, Converter={StaticResource BoolToVisibility}}" />
 
         <!--
             IsSynchronizedWithCurrentItem="False" обязателен. По умолчанию список

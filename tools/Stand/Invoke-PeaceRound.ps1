@@ -102,6 +102,11 @@ if ([string]::IsNullOrWhiteSpace($Run)) {
 $CmdAppearedChange = 0.03
 $AppAppearedChange = 0.2
 
+# А вот смена экрана внутри окна меняет куда меньше: оба экрана белые, разница —
+# это несколько строк текста и рамка таблицы, меньше процента точек. Порог здесь
+# отделяет её от дрожания картинки, а не от появления окна.
+$ScreenChangedChange = 0.005
+
 $started = Get-Date
 $step = 0
 function Write-Step {
@@ -270,9 +275,16 @@ try {
                 # Имя нарочно не $then: так зовётся параметр, а переменная
                 # параметра сохраняет свой тип [string[]] и молча превращает
                 # присвоенный объект в строку. Уже поймано.
+                # AllowBlank обязателен. Проверка на однотонность бережёт
+                # от чёрного экрана загрузки, но окно приложения к этому времени
+                # уже на месте, а последние экраны мастера почти пусты: белое
+                # поле с двумя строками текста не дотягивает до порога «есть
+                # что показать», и ожидание не кончалось бы никогда. От того,
+                # что мы примем не тот экран за нужный, бережёт DifferentFrom
+                # и снимок, который всё равно снимается.
                 $afterKeys = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
-                    -TimeoutSeconds 60 -StableSeconds 2 `
-                    -DifferentFrom $app.Frame -MinDifference 0.02 `
+                    -TimeoutSeconds 60 -StableSeconds 2 -AllowBlank `
+                    -DifferentFrom $app.Frame -MinDifference $ScreenChangedChange `
                     -What 'экран после нажатий'
 
                 # Снимок нужен в обоих случаях: не туда пришли — это тоже ответ,

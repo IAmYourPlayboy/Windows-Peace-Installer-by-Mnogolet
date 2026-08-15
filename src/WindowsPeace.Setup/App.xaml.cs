@@ -75,10 +75,14 @@ public partial class App : Application
             recipePicker,
             diskPicker,
             new ConfirmViewModel(choice),
-            new PlaceholderViewModel(),
+            new ProgressViewModel(),
+            new DoneViewModel(),
         });
 
-        var window = new ShellWindow { DataContext = new ShellViewModel(navigator) };
+        var window = new ShellWindow(snapshot.IsWindowsPe)
+        {
+            DataContext = new ShellViewModel(navigator, Shutdown),
+        };
         Checkpoint("Окно создано", null);
 
         window.ContentRendered += (_, _) =>
@@ -125,7 +129,7 @@ public partial class App : Application
         {
             Checkpoint("Носитель не найден", "Описи нет ни на одном томе: " + string.Join(" ", snapshot.VolumeRoots),
                 OperationOutcome.Failure);
-            return RecipePickerViewModel.WithoutMedia(Shutdown);
+            return RecipePickerViewModel.WithoutMedia();
         }
 
         var manifest = media.Load(new FileTextReader());
@@ -138,7 +142,7 @@ public partial class App : Application
         Checkpoint("Чтение описи: " + manifest.Status, detail,
             manifest.Status == MediaManifestStatus.Ok ? OperationOutcome.Success : OperationOutcome.Failure);
 
-        return new RecipePickerViewModel(manifest, Shutdown);
+        return new RecipePickerViewModel(manifest);
     }
 
     /// <summary>

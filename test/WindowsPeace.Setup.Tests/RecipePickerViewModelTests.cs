@@ -13,9 +13,7 @@ public class RecipePickerViewModelTests
                      "image": { "file": "sources\\install.wim", "index": 1 } } ] }
     """);
 
-    /// <summary>Закрытие мастера подставное: настоящее закрыло бы и сам тест.</summary>
-    private static RecipePickerViewModel Screen(MediaManifestResult result, Action? onClose = null)
-        => new(result, onClose ?? (() => { }));
+    private static RecipePickerViewModel Screen(MediaManifestResult result) => new(result);
 
     [Fact]
     public void Экран_ничего_не_выбирает_за_человека()
@@ -104,7 +102,7 @@ public class RecipePickerViewModelTests
     [Fact]
     public void Носитель_не_найден_вовсе()
     {
-        var page = RecipePickerViewModel.WithoutMedia(() => { });
+        var page = RecipePickerViewModel.WithoutMedia();
 
         Assert.Empty(page.Recipes);
         Assert.False(page.CanGoNext);
@@ -113,30 +111,16 @@ public class RecipePickerViewModelTests
     }
 
     /// <summary>
-    /// Тупик обязан иметь выход. В WinPE окно занимает весь экран и креста
-    /// на нём нет: не предложи мы закрыть мастер — человеку осталось бы
-    /// только выключить машину из розетки.
+    /// Выход из тупика есть, но не здесь: «Закрыть мастер» стоит в углу
+    /// оболочки и одинакова на всех экранах — искать её в разных местах
+    /// разных экранов человек не должен. См. ShellViewModelTests.
     /// </summary>
     [Fact]
-    public void В_тупике_предлагается_закрыть_мастер_и_кнопка_работает()
-    {
-        var closed = 0;
-        var page = Screen(MediaManifestReader.Read("{ мусор"), () => closed++);
-
-        Assert.True(page.CloseCommand.CanExecute(null));
-
-        page.CloseCommand.Execute(null);
-
-        Assert.Equal(1, closed);
-    }
-
-    [Fact]
-    public void Когда_всё_в_порядке_закрывать_не_предлагается()
+    public void Когда_всё_в_порядке_беды_на_экране_нет()
     {
         var page = Screen(OneRecipe());
 
         Assert.False(page.HasTrouble);
         Assert.Equal(string.Empty, page.Trouble);
-        Assert.False(page.CloseCommand.CanExecute(null));
     }
 }

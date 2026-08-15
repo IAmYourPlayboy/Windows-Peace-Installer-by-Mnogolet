@@ -25,10 +25,30 @@ internal sealed class NamedNextPage : IWizardPage
     }
 }
 
+/// <summary>Страница, с которой возвращаться уже некуда: работа началась.</summary>
+internal sealed class NoWayBackPage : IWizardPage
+{
+    public string Title => "Установка";
+
+    public bool CanGoBack => false;
+
+    public bool CanGoNext => true;
+
+    public event EventHandler? CanGoNextChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public void OnEnter()
+    {
+    }
+}
+
 public class ShellViewModelTests
 {
     private static ShellViewModel Shell(params IWizardPage[] pages)
-        => new(new WizardNavigator(new List<IWizardPage>(pages)));
+        => new(new WizardNavigator(new List<IWizardPage>(pages)), () => { });
 
     /// <summary>
     /// «Далее» — то, что подходит большинству экранов, и его не приходится
@@ -61,5 +81,43 @@ public class ShellViewModelTests
 
         Assert.Equal("Установить", shell.NextTitle);
         Assert.Equal(1, changed);
+    }
+
+    /// <summary>
+    /// Выход есть с любого экрана и всегда один и тот же. В WinPE окно занимает
+    /// весь экран и крестика на нём нет: не предложи мастер выход сам —
+    /// человеку осталось бы выключить машину из розетки.
+    /// </summary>
+    [Fact]
+    public void Выход_из_мастера_есть_на_каждом_экране()
+    {
+        var closed = 0;
+        var shell = new ShellViewModel(
+            new WizardNavigator(new List<IWizardPage> { new FakePage("Диски"), new NoWayBackPage() }),
+            () => closed++);
+
+        Assert.True(shell.CloseCommand.CanExecute(null));
+        shell.CloseCommand.Execute(null);
+
+        shell.NextCommand.Execute(null);
+
+        Assert.True(shell.CloseCommand.CanExecute(null));
+        shell.CloseCommand.Execute(null);
+
+        Assert.Equal(2, closed);
+    }
+
+    /// <summary>
+    /// Спека: «Назад» доступна на экранах 1–3 и недоступна на 4–5. Решает
+    /// сама страница: оболочка про экраны поимённо не знает.
+    /// </summary>
+    [Fact]
+    public void Страница_может_запретить_возврат_назад()
+    {
+        var shell = Shell(new FakePage("Диски"), new NoWayBackPage());
+
+        shell.NextCommand.Execute(null);
+
+        Assert.False(shell.BackCommand.CanExecute(null));
     }
 }

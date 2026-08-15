@@ -114,15 +114,32 @@ try {
     # ---------- пройти вперёд по экранам ----------
     if ($Advance -gt 0 -or $TypeText) {
         for ($step = 1; $step -le $Advance; $step++) {
-            $chosen = Select-PeaceFirstItem -Root $window -TimeoutSeconds $TimeoutSeconds
-            Write-Host "Экран $step`: выбрано «$chosen»."
+            # Список есть не на каждом экране — на сводке выбирать нечего.
+            # А там, где он есть, он наполняется не сразу: диски опрашиваются
+            # в стороннем потоке. Оба случая закрыты одним ожиданием.
+            $ready = Wait-PeaceScreenReady -Root $window -TimeoutSeconds $TimeoutSeconds
+            if (-not $ready) {
+                throw "Экран $step не ожил за $TimeoutSeconds с: ни строки для выбора, ни поля ввода, ни доступной кнопки перехода."
+            }
 
-            # Ожидание, пока «Далее» оживёт, — половина проверки: кнопка оживает
-            # тогда и только тогда, когда выбор дошёл до модели экрана.
-            Invoke-PeaceButton -Root $window -Name 'Далее' -TimeoutSeconds $TimeoutSeconds
+            if ($ready.Item) {
+                $chosen = Select-PeaceItem -Item $ready.Item
+                Write-Host "Экран $step`: выбрано «$chosen»."
+            }
+
+            if ($ready.Field -and $TypeText) {
+                Set-PeaceText -Root $window -Text $TypeText -TimeoutSeconds $TimeoutSeconds
+                Write-Host "Экран $step`: вписано «$TypeText»."
+            }
+
+            # Ожидание, пока кнопка перехода оживёт, — половина проверки: она
+            # оживает тогда и только тогда, когда выбор дошёл до модели экрана.
+            # Ищется по неизменной метке, а не по слову: слово даёт страница.
+            $pressed = Invoke-PeaceButton -Root $window -AutomationId 'Next' -TimeoutSeconds $TimeoutSeconds
+            Write-Host "Экран $step`: нажато «$pressed»."
         }
 
-        if ($TypeText) {
+        if ($TypeText -and $Advance -eq 0) {
             Set-PeaceText -Root $window -Text $TypeText -TimeoutSeconds $TimeoutSeconds
             Write-Host "Вписано в поле: «$TypeText»."
         }
@@ -152,11 +169,14 @@ try {
     Write-Host 'Что написано на экране:' -ForegroundColor Cyan
     foreach ($line in (Get-PeaceScreenText -Root $window)) { Write-Host "  $line" }
 
-    foreach ($name in @('Назад', 'Далее', 'Установить')) {
-        $button = Get-PeaceButton -Root $window -Name $name
+    # Кнопки оболочки перечисляются по меткам, а не по надписям: надпись
+    # на кнопке перехода меняется от страницы, и список слов пришлось бы
+    # дописывать при каждом новом экране.
+    foreach ($id in @('Back', 'Next', 'Close')) {
+        $button = Get-PeaceButton -Root $window -AutomationId $id
         if ($button) {
             $state = if ($button.Current.IsEnabled) { 'доступна' } else { 'выключена' }
-            Write-Host "  [кнопка «$name» — $state]"
+            Write-Host "  [кнопка «$($button.Current.Name)» — $state]"
         }
     }
 }

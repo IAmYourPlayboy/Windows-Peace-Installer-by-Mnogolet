@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using WindowsPeace.Setup.Infrastructure;
 
 namespace WindowsPeace.Setup.Shell;
@@ -8,12 +8,18 @@ public sealed class ShellViewModel : ViewModelBase
 {
     private readonly WizardNavigator _navigator;
 
-    public ShellViewModel(WizardNavigator navigator)
+    /// <param name="closeWizard">
+    /// Выход из мастера. Он один на все экраны и всегда в одном и том же углу:
+    /// в WinPE окно занимает весь экран и крестика на нём нет, а искать выход
+    /// в разных местах разных экранов человек не должен.
+    /// </param>
+    public ShellViewModel(WizardNavigator navigator, Action closeWizard)
     {
         _navigator = navigator;
 
         BackCommand = new RelayCommand(_navigator.GoBack, () => _navigator.CanGoBack);
         NextCommand = new RelayCommand(_navigator.GoNext, () => _navigator.CanGoNext);
+        CloseCommand = new RelayCommand(closeWizard);
 
         _navigator.CurrentChanged += OnNavigationChanged;
         _navigator.CanGoNextChanged += OnReadinessChanged;
@@ -29,6 +35,8 @@ public sealed class ShellViewModel : ViewModelBase
     public RelayCommand BackCommand { get; }
 
     public RelayCommand NextCommand { get; }
+
+    public RelayCommand CloseCommand { get; }
 
     private void OnNavigationChanged(object? sender, EventArgs e)
     {
