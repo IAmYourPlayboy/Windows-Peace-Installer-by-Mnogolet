@@ -75,9 +75,38 @@ public partial class App : Application
         var window = new ShellWindow { DataContext = new ShellViewModel(navigator) };
         Checkpoint("Окно создано", null);
 
-        window.ContentRendered += (_, _) => Checkpoint("Первая отрисовка прошла", null);
+        window.ContentRendered += (_, _) =>
+        {
+            Checkpoint("Первая отрисовка прошла", null);
+            FailOnPurpose(e.Args);
+        };
         window.Show();
         Checkpoint("Show вызван", null);
+    }
+
+    /// <summary>
+    /// Отладочный ключ «--crash»: роняет мастера после первой отрисовки.
+    /// Нужен затем, что путь обработки неожиданной ошибки — тоже путь, и работать
+    /// он обязан проверенно, а не «по замыслу»: настоящую неожиданную ошибку
+    /// по заказу не устроишь. В обычном ходе работы ключ не используется.
+    ///
+    /// Падение откладывается отдельным действием окна, а не бросается прямо
+    /// здесь. Так ошибки и случаются на самом деле — в нажатии кнопки,
+    /// в продолжении задачи, — а брошенная посреди отрисовки не доходит даже
+    /// до собственного объяснения: проверено, окно с объяснением не появилось.
+    /// </summary>
+    private void FailOnPurpose(string[] args)
+    {
+        foreach (var arg in args)
+        {
+            if (string.Equals(arg, "--crash", StringComparison.Ordinal))
+            {
+                Checkpoint("Отладочный ключ --crash", "Роняю мастера нарочно");
+                Dispatcher.BeginInvoke(new Action(
+                    () => throw new InvalidOperationException("Падение по отладочному ключу --crash.")));
+                return;
+            }
+        }
     }
 
     /// <summary>
@@ -150,10 +179,36 @@ public partial class App : Application
         => _journal.Write(new OperationRecord(
             DateTimeOffset.Now, "Setup.Startup", what, _sinceStart.Elapsed, outcome, detail));
 
+    /// <summary>
+    /// Неожиданная ошибка в окне. Стандартное окно .NET показало бы человеку
+    /// трассировку стека по-английски — ровно то, чего он видеть не должен.
+    /// Ему одна понятная строка, нам в журнал всё остальное.
+    ///
+    /// Мастер после этого закрывается, а не продолжает: что именно сломалось,
+    /// отсюда неизвестно, и работать дальше на сломанном — хуже, чем закрыться.
+    /// </summary>
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-        => _journal.Write(new OperationRecord(
+    {
+        _journal.Write(new OperationRecord(
             DateTimeOffset.Now, "Setup.Startup", "Необработанная ошибка в окне", _sinceStart.Elapsed,
             OperationOutcome.Failure, e.Exception.ToString()));
+
+        e.Handled = true;
+
+        Checkpoint("Показываю объяснение", null);
+
+        MessageBox.Show(
+            "Windows Peace не смог продолжить работу и сейчас закроется." + Environment.NewLine +
+            Environment.NewLine +
+            "Разбираться с этим нам, а не вам: что случилось, записано в журнал работы.",
+            "Windows Peace",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+
+        Checkpoint("Объяснение закрыто", null);
+
+        Shutdown();
+    }
 
     private void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
         => _journal.Write(new OperationRecord(
