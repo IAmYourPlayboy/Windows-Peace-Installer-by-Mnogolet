@@ -51,10 +51,13 @@ param(
     [string] $OutFolder = 'D:\WindowsPeace-Stand\round',
     [string] $VmName = 'Windows Peace Stand',
 
-    # Что запустить на носителе. Путь от корня раздела данных; по умолчанию —
-    # сам мастер. Значение подставляется ниже: раскладка носителя живёт в модуле,
-    # а он к моменту разбора ключей ещё не подключён.
+    # Что запустить на носителе руками, из командной строки. Путь от корня
+    # раздела данных. Без этого ключа круг ничего не набирает: образ правлен,
+    # и мастер поднимается сам. Ключ нужен для отладочных программ вроде
+    # DiskDump, которые сами не запускаются.
     [string] $Run,
+
+    # Не ждать приложения вовсе: только загрузиться и снять экран.
     [switch] $NoRun,
     [switch] $KeepRunning,
 
@@ -90,10 +93,6 @@ function Resolve-RepoPath {
     if ([string]::IsNullOrWhiteSpace($Path)) { return $Path }
     if ([IO.Path]::IsPathRooted($Path)) { return $Path }
     Join-Path $repoRoot $Path
-}
-
-if ([string]::IsNullOrWhiteSpace($Run)) {
-    $Run = Join-Path $PeaceMediaLayout.App 'WindowsPeace.Setup.exe'
 }
 
 # Насколько сильно должна измениться картинка, чтобы считаться новой.
@@ -209,10 +208,27 @@ try {
         Write-Step "Среда загрузилась. Экран: $bootShot"
     }
 
+    # Кадр, на котором приложение уже на экране. Дальше от него отсчитывается
+    # всё остальное; $null значит, что приложения мы так и не увидели.
+    $appFrame = $null
+    $appShot = $bootShot
+
     if ($NoRun) {
-        Write-Step 'Запуск пропущен по ключу -NoRun.'
+        Write-Step 'Ожидание приложения пропущено по ключу -NoRun.'
     }
-    elseif ($boot.Settled) {
+    elseif (-not $boot.Settled) {
+        Write-Step 'Среда не поднялась — приложения ждать не от чего.'
+    }
+    elseif (-not $Run) {
+        # ---------- 6. приложение поднялось само ----------
+        # Образ правлен: winpeshl.ini запускает мастер вместо установщика
+        # Windows. Значит, устоявшийся экран загрузки — это уже он, и открывать
+        # командную строку не нужно. Больше того, нельзя: Shift+F10 в мастере
+        # ничего не откроет, а набранное уйдёт прямо в его окно.
+        $appFrame = $boot.Frame
+        Write-Step "Мастер поднялся сам, без командной строки. Снимок: $bootShot"
+    }
+    else {
         # ---------- 6. командная строка ----------
 
         Write-Step 'Открываю командную строку (Shift+F10)...'
@@ -264,13 +280,24 @@ try {
             }
             else {
                 Write-Step "Приложение на экране. Снимок: $runShot"
+                $appFrame = $app.Frame
+                $appShot = $runShot
             }
+        }
+    }
 
-            # ---------- 8. пройти по экранам ----------
+    # ---------- 7. пройти по экранам ----------
+    # Одинаково для обоих путей: приложение либо поднялось само, либо запущено
+    # из командной строки, а дальше с ним разговаривают клавишами.
 
-            if ($Then.Count -gt 0 -and $app.Settled) {
-                Write-Step "Нажимаю в окне: $($Then -join ' ')"
-                & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send $Then | Out-Null
+    if ($Then.Count -gt 0) {
+        if (-not $appFrame) {
+            $settled = $false
+            $trouble += 'Нажимать было некуда: приложения на экране не оказалось.'
+        }
+        else {
+            Write-Step "Нажимаю в окне: $($Then -join ' ')"
+            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send $Then | Out-Null
 
                 # Имя нарочно не $then: так зовётся параметр, а переменная
                 # параметра сохраняет свой тип [string[]] и молча превращает
@@ -282,23 +309,23 @@ try {
                 # что показать», и ожидание не кончалось бы никогда. От того,
                 # что мы примем не тот экран за нужный, бережёт DifferentFrom
                 # и снимок, который всё равно снимается.
-                $afterKeys = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
-                    -TimeoutSeconds 60 -StableSeconds 2 -AllowBlank `
-                    -DifferentFrom $app.Frame -MinDifference $ScreenChangedChange `
-                    -What 'экран после нажатий'
+            $afterKeys = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
+                -TimeoutSeconds 60 -StableSeconds 2 -AllowBlank `
+                -DifferentFrom $appFrame -MinDifference $ScreenChangedChange `
+                -What 'экран после нажатий'
 
-                # Снимок нужен в обоих случаях: не туда пришли — это тоже ответ,
-                # и увидеть его надо на картинке, а не гадать по отказу.
-                if ($afterKeys.Frame) { Save-PeaceFrame -Frame $afterKeys.Frame -Path $thenShot }
-                if (-not $afterKeys.Settled) {
-                    $settled = $false
-                    $trouble += 'Экран после нажатий не устоялся: ' + $afterKeys.Reason
-                    Write-Warning $afterKeys.Reason
-                    Write-Warning "Последний кадр всё равно снят: $thenShot"
-                }
-                else {
-                    Write-Step "Экран после нажатий. Снимок: $thenShot"
-                }
+            # Снимок нужен в обоих случаях: не туда пришли — это тоже ответ,
+            # и увидеть его надо на картинке, а не гадать по отказу.
+            if ($afterKeys.Frame) { Save-PeaceFrame -Frame $afterKeys.Frame -Path $thenShot }
+            if (-not $afterKeys.Settled) {
+                $settled = $false
+                $trouble += 'Экран после нажатий не устоялся: ' + $afterKeys.Reason
+                Write-Warning $afterKeys.Reason
+                Write-Warning "Последний кадр всё равно снят: $thenShot"
+            }
+            else {
+                Write-Step "Экран после нажатий. Снимок: $thenShot"
+                $appShot = $thenShot
             }
         }
     }
@@ -334,12 +361,16 @@ finally {
 
 Write-Host ''
 $total = ((Get-Date) - $started).TotalSeconds
-if ($settled) {
-    Write-Host ("Круг пройден за {0:N0} с. Смотреть: {1}" -f $total, $runShot) -ForegroundColor Green
-}
-else {
+if (-not $settled) {
     Write-Host ("Круг пройден не до конца, {0:N0} с." -f $total) -ForegroundColor Yellow
     $trouble | ForEach-Object { Write-Host "  — $_" -ForegroundColor Yellow }
     Write-Host "Снимки: $OutFolder" -ForegroundColor Yellow
     exit 1
 }
+
+Write-Host ("Круг пройден за {0:N0} с. Смотреть: {1}" -f $total, $appShot) -ForegroundColor Green
+
+# Явный ноль обязателен: последней в круге работает robocopy, а она возвращает
+# единицу, когда что-то скопировала. Без этой строки удачный круг сообщал бы
+# вызвавшему об отказе.
+exit 0
