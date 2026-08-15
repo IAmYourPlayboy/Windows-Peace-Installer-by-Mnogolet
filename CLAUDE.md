@@ -141,7 +141,17 @@ powershell -File tools\Stand\Invoke-PeaceRound.ps1
 
 Раздел данных на носителе ищется **по описи `windows-peace-media.json` в корне**,
 а не по букве: в WinPE буквы непредсказуемы, однажды носитель оказался под `C:`.
-Тем же признаком его находит сам мастер.
+Тем же признаком его находит сам мастер — и тем же ищется раздел на настоящей
+флешке, которую монтировать не надо:
+
+```powershell
+Import-Module .\tools\Media\PeaceMedia.psm1 -Force
+Update-PeaceMediaApp -DiskNumber 2 -AppFolder artifacts\setup -ResetLog
+```
+
+Собрать флешку заново — `Build-PeaceMedia.ps1 -UsbDiskNumber 2 -ConfirmModel
+"VendorC ProductCode" -AppFolder artifacts\setup`. Скрипт откажется работать,
+если шина не USB или модель названа неточно.
 
 ---
 

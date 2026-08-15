@@ -218,12 +218,12 @@ try {
 
     # Папка logs остаётся на хозяйской машине: журнал здешних запусков на носителе
     # выдаёт себя за журнал из WinPE, и разбор идёт по ложному следу.
-    robocopy $AppFolder $appTarget /E /R:2 /W:2 /NFL /NDL /NP /XD $($PeaceMediaLayout.Logs) | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw "robocopy приложения завершился с кодом $LASTEXITCODE" }
+    Copy-PeaceTree -Source $AppFolder -Target $appTarget -What 'приложения' `
+        -Options @('/E', '/XD', $PeaceMediaLayout.Logs)
 
     if ($DiskDumpFolder) {
-        robocopy $DiskDumpFolder (Join-Path $appTarget 'DiskDump') /E /R:2 /W:2 /NFL /NDL /NP | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw "robocopy DiskDump завершился с кодом $LASTEXITCODE" }
+        Copy-PeaceTree -Source $DiskDumpFolder -Target (Join-Path $appTarget 'DiskDump') `
+            -What 'отладочной утилиты' -Options @('/E')
     }
 
     $recipeFileName = Split-Path $RecipeFile -Leaf
@@ -275,3 +275,8 @@ finally {
         Dismount-VHD -Path $VhdxPath -ErrorAction SilentlyContinue
     }
 }
+
+# Исход задаётся явно, а не последней командой внутри. Иначе он однажды снова
+# окажется чужим: robocopy при удаче возвращает единицу, и удачная сборка
+# отрапортовала отказом.
+exit 0

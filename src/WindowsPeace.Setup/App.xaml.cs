@@ -48,7 +48,8 @@ public partial class App : Application
             Checkpoint("Место для журнала не подошло", refusal, OperationOutcome.Failure);
         }
 
-        var snapshot = HostEnvironment.Describe(new RealEnvironmentReader(_journal));
+        var machine = new RealEnvironmentReader(_journal);
+        var snapshot = HostEnvironment.Describe(machine);
         Checkpoint("Снимок среды", snapshot.ToString());
 
         var probe = new RealFileSystemProbe();
@@ -88,6 +89,12 @@ public partial class App : Application
         window.ContentRendered += (_, _) =>
         {
             Checkpoint("Первая отрисовка прошла", null);
+
+            // Расход памяти замеряется здесь, когда окно уже нарисовано:
+            // до этого мерить нечего. Число нужно нам — из него вырастет
+            // системное требование, — а человеку о нём знать незачем.
+            Checkpoint("Расход памяти", MemoryUse.Measure(machine).ToString());
+
             FailOnPurpose(e.Args);
         };
         window.Show();

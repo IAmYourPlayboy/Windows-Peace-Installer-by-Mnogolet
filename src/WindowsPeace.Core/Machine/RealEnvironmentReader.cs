@@ -66,19 +66,41 @@ public sealed class RealEnvironmentReader : IEnvironmentReader
 
     public string OsVersion() => System.Environment.OSVersion.VersionString;
 
-    public ulong TotalMemoryBytes()
+    public ulong TotalMemoryBytes() => ReadMemory(status => status.TotalPhys, "Размер памяти");
+
+    public ulong AvailableMemoryBytes() => ReadMemory(status => status.AvailPhys, "Свободная память");
+
+    public ulong ProcessMemoryBytes()
+    {
+        try
+        {
+            using var self = System.Diagnostics.Process.GetCurrentProcess();
+            return (ulong)self.WorkingSet64;
+        }
+        catch (InvalidOperationException error)
+        {
+            Complain("Расход памяти мастером", string.Empty, error);
+            return 0UL;
+        }
+    }
+
+    /// <summary>
+    /// Один разговор с ядром на все вопросы о памяти. Написанный дважды,
+    /// он разошёлся бы в мелочах — в размере структуры или в разборе отказа.
+    /// </summary>
+    private ulong ReadMemory(Func<NativeMethods.MemoryStatusEx, ulong> pick, string what)
     {
         var status = default(NativeMethods.MemoryStatusEx);
         status.Length = (uint)System.Runtime.InteropServices.Marshal.SizeOf(status);
 
         if (NativeMethods.GlobalMemoryStatusEx(ref status))
         {
-            return status.TotalPhys;
+            return pick(status);
         }
 
         var code = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
         _log.Write(new OperationRecord(
-            DateTimeOffset.Now, "Setup.Environment", "Размер памяти", TimeSpan.Zero,
+            DateTimeOffset.Now, "Setup.Environment", what, TimeSpan.Zero,
             OperationOutcome.Failure, "GlobalMemoryStatusEx отказал, код " + code.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         return 0UL;
     }

@@ -82,6 +82,35 @@ function Test-PeaceVhdxDescends {
     $false
 }
 
+function Copy-PeaceTree {
+    <#
+    .SYNOPSIS
+        Скопировать папку целиком через robocopy и честно сказать об исходе.
+
+    .DESCRIPTION
+        robocopy при удаче возвращает не ноль: единица значит «файлы
+        скопированы», тройка — «скопированы и лишние удалены». Отказ начинается
+        с восьми. Оставлять такой код в $LASTEXITCODE нельзя: вызвавший прочитает
+        его как отказ — и однажды прочитал, удачная сборка носителя отрапортовала
+        единицей. Поэтому код разбирается здесь и обнуляется.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [string] $Source,
+        [Parameter(Mandatory = $true)] [string] $Target,
+        [string[]] $Options = @(),
+        [string] $What = 'папки'
+    )
+
+    robocopy $Source $Target @Options /R:2 /W:2 /NFL /NDL /NP | Out-Null
+    $code = $LASTEXITCODE
+    $global:LASTEXITCODE = 0
+
+    if ($code -ge 8) {
+        throw "Копирование $What из '$Source' в '$Target' завершилось с кодом $code."
+    }
+}
+
 function Get-PeaceVhdxHolder {
     <#
     .SYNOPSIS
@@ -230,10 +259,15 @@ function Update-PeaceMediaApp {
         быстрее в разы, а быстрый круг проходят чаще.
 
         Разметка при этом не трогается, поэтому носитель остаётся загрузочным.
+
+        Носитель задаётся одним из двух: -VhdxPath — виртуальный, его надо
+        примонтировать; -DiskNumber — настоящий, он уже в системе. Раздел данных
+        в обоих случаях опознаётся по описи в корне, а не по букве.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Vhdx')]
     param(
-        [Parameter(Mandatory = $true)] [string] $VhdxPath,
+        [Parameter(Mandatory = $true, ParameterSetName = 'Vhdx')] [string] $VhdxPath,
+        [Parameter(Mandatory = $true, ParameterSetName = 'Disk')] [int] $DiskNumber,
         [Parameter(Mandatory = $true)] [string] $AppFolder,
         [string] $DiskDumpFolder,
         [switch] $ResetLog
@@ -245,7 +279,7 @@ function Update-PeaceMediaApp {
     $appFull = (Resolve-Path $AppFolder).Path
     $dumpFull = if ($DiskDumpFolder -and (Test-Path $DiskDumpFolder)) { (Resolve-Path $DiskDumpFolder).Path } else { $null }
 
-    Use-PeaceMedia -VhdxPath $VhdxPath -Action {
+    $update = {
         param($root)
 
         $target = Join-Path $root $PeaceMediaLayout.App
@@ -256,12 +290,12 @@ function Update-PeaceMediaApp {
         # Папка logs не переносится ни в ту, ни в другую сторону. Иначе журнал
         # запусков на хозяйской машине уезжает на носитель и выдаёт себя
         # за журнал из WinPE — однажды это уже сбило с толку.
-        robocopy $appFull $target /MIR /R:2 /W:2 /NFL /NDL /NP /XD DiskDump $($PeaceMediaLayout.Logs) | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw "robocopy приложения завершился с кодом $LASTEXITCODE." }
+        Copy-PeaceTree -Source $appFull -Target $target -What 'приложения' `
+            -Options @('/MIR', '/XD', 'DiskDump', $PeaceMediaLayout.Logs)
 
         if ($dumpFull) {
-            robocopy $dumpFull (Join-Path $target 'DiskDump') /MIR /R:2 /W:2 /NFL /NDL /NP | Out-Null
-            if ($LASTEXITCODE -ge 8) { throw "robocopy DiskDump завершился с кодом $LASTEXITCODE." }
+            Copy-PeaceTree -Source $dumpFull -Target (Join-Path $target 'DiskDump') `
+                -What 'отладочной утилиты' -Options @('/MIR')
         }
 
         # Папка logs исключена из зеркалирования, а значит и не стирается им.
@@ -276,6 +310,16 @@ function Update-PeaceMediaApp {
 
         Write-Host "Приложение на носителе обновлено: $target" -ForegroundColor Green
     }
+
+    if ($PSCmdlet.ParameterSetName -eq 'Vhdx') {
+        Use-PeaceMedia -VhdxPath $VhdxPath -Action $update
+        return
+    }
+
+    # Настоящий носитель монтировать не надо, он уже в системе. Раздел данных
+    # ищется тем же признаком — описью в корне.
+    Assert-PeaceAdmin
+    & $update (Get-PeaceMediaDataRoot -DiskNumber $DiskNumber)
 }
 
 function Get-PeaceMediaLog {
@@ -327,5 +371,6 @@ function Get-PeaceMediaLog {
     }
 }
 
-Export-ModuleMember -Variable PeaceMediaLayout -Function Assert-PeaceAdmin, Get-PeaceVhdxHolder,
-    Assert-PeaceVhdxFree, Get-PeaceMediaDataRoot, Use-PeaceMedia, Update-PeaceMediaApp, Get-PeaceMediaLog
+Export-ModuleMember -Variable PeaceMediaLayout -Function Assert-PeaceAdmin, Copy-PeaceTree,
+    Get-PeaceVhdxHolder, Assert-PeaceVhdxFree, Get-PeaceMediaDataRoot, Use-PeaceMedia,
+    Update-PeaceMediaApp, Get-PeaceMediaLog

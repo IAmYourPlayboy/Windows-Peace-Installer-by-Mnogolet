@@ -16,6 +16,12 @@ public interface IEnvironmentReader
 
     ulong TotalMemoryBytes();
 
+    /// <summary>Сколько памяти машины свободно прямо сейчас.</summary>
+    ulong AvailableMemoryBytes();
+
+    /// <summary>Сколько занимает сам мастер прямо сейчас.</summary>
+    ulong ProcessMemoryBytes();
+
     IReadOnlyList<string> VolumeRoots();
 
     string WindowsDirectory();

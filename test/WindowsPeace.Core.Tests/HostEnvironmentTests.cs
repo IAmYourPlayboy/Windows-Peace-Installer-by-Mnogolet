@@ -27,6 +27,12 @@ public class HostEnvironmentTests
 
         public ulong TotalMemoryBytes() => 4UL * 1024 * 1024 * 1024;
 
+        // Снимок среды про эти два не спрашивает: расход памяти замеряется
+        // отдельно и позже, когда окно уже нарисовано. См. MemoryUseTests.
+        public ulong AvailableMemoryBytes() => 3UL * 1024 * 1024 * 1024;
+
+        public ulong ProcessMemoryBytes() => 0UL;
+
         public IReadOnlyList<string> VolumeRoots() => new[] { @"X:\", @"E:\" };
 
         public string WindowsDirectory() => @"X:\Windows";
