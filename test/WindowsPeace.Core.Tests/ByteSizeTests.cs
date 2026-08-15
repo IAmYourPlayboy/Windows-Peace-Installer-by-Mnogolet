@@ -42,6 +42,16 @@ public class ByteSizeTests
     }
 
     [Fact]
+    public void Мелочь_не_выдаётся_за_ноль()
+    {
+        // «0 МБ» там, где что-то есть, — неправда, пусть и мелкая. А вот ровно
+        // ноль так и остаётся нулём.
+        Assert.Equal("менее 1 МБ", InCulture("ru-RU", 512UL * 1024UL));
+        Assert.Equal("менее 1 МБ", InCulture("ru-RU", 1UL));
+        Assert.Equal("0 МБ", InCulture("ru-RU", 0UL));
+    }
+
+    [Fact]
     public void Дробная_часть_одна_цифра_и_считается_как_в_Windows()
     {
         // 476,94 ГиБ — тот самый диск с машины автора. «Управление дисками»

@@ -26,7 +26,8 @@
                 и целиком уходит в журнал: разбираться в наших ошибках человеку
                 у флешки незачем, это наша работа. Решение автора.
             -->
-            <TextBlock Text="{Binding Trouble}" TextWrapping="Wrap" Foreground="#B00020" />
+            <TextBlock Text="{Binding Trouble}" TextWrapping="Wrap"
+                       Foreground="{StaticResource TroubleBrush}" />
 
             <Button Content="Закрыть мастер" Command="{Binding CloseCommand}"
                     HorizontalAlignment="Left" Margin="0,16,0,0" Padding="10,4" />

@@ -129,7 +129,7 @@ public static class OperationLogOpener
         {
             for (var attempt = 1; attempt <= NamesPerPlace; attempt++)
             {
-                var path = System.IO.Path.Combine(place, JsonLinesOperationLog.FileNameFor(attempt));
+                var path = Path.Combine(place, JsonLinesOperationLog.FileNameFor(attempt));
                 var result = opener.Open(path);
 
                 if (result.Log is not null)

@@ -97,16 +97,14 @@ public partial class App : Application
     /// </summary>
     private void FailOnPurpose(string[] args)
     {
-        foreach (var arg in args)
+        if (!HasFlag(args, "--crash"))
         {
-            if (string.Equals(arg, "--crash", StringComparison.Ordinal))
-            {
-                Checkpoint("Отладочный ключ --crash", "Роняю мастера нарочно");
-                Dispatcher.BeginInvoke(new Action(
-                    () => throw new InvalidOperationException("Падение по отладочному ключу --crash.")));
-                return;
-            }
+            return;
         }
+
+        Checkpoint("Отладочный ключ --crash", "Роняю мастера нарочно");
+        Dispatcher.BeginInvoke(new Action(
+            () => throw new InvalidOperationException("Падение по отладочному ключу --crash.")));
     }
 
     /// <summary>
@@ -157,6 +155,7 @@ public partial class App : Application
         return BootMediaLocator.FindAmong(snapshot.VolumeRoots, probe);
     }
 
+    /// <summary>Ключ со значением: «--media папка».</summary>
     private static string? ReadOption(string[] args, string name)
     {
         for (var i = 0; i < args.Length - 1; i++)
@@ -168,6 +167,20 @@ public partial class App : Application
         }
 
         return null;
+    }
+
+    /// <summary>Ключ без значения: «--crash».</summary>
+    private static bool HasFlag(string[] args, string name)
+    {
+        foreach (var arg in args)
+        {
+            if (string.Equals(arg, name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

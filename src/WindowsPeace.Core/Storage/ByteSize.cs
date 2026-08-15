@@ -21,9 +21,22 @@ public static class ByteSize
     /// выглядеть здесь ровно так же: расхождение читается как «программа
     /// смотрит на другой диск». Мельче гигабайта счёт идёт в мегабайтах
     /// и целыми: доли мегабайта человеку ничего не говорят.
+    ///
+    /// Меньше мегабайта, но не ноль, — «менее 1 МБ», а не «0 МБ». Ноль там,
+    /// где что-то есть, — это неправда, пусть и мелкая.
     /// </summary>
     public static string Format(ulong bytes)
-        => bytes >= Gib
-            ? ((double)bytes / Gib).ToString("0.#", CultureInfo.CurrentCulture) + " ГБ"
-            : (bytes / Mib).ToString(CultureInfo.CurrentCulture) + " МБ";
+    {
+        if (bytes >= Gib)
+        {
+            return ((double)bytes / Gib).ToString("0.#", CultureInfo.CurrentCulture) + " ГБ";
+        }
+
+        if (bytes > 0 && bytes < Mib)
+        {
+            return "менее 1 МБ";
+        }
+
+        return (bytes / Mib).ToString(CultureInfo.CurrentCulture) + " МБ";
+    }
 }

@@ -11,6 +11,14 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <infrastructure:RemainingWidthConverter x:Key="RemainingWidth" />
 
+        <!--
+            Цвет, которым говорят о беде. Одно место на все экраны: цвет
+            предупреждения, записанный числом в каждой разметке, разъезжается
+            при первой же правке, и человек перестаёт различать «это важно»
+            и «это просто текст».
+        -->
+        <SolidColorBrush x:Key="TroubleBrush" Color="#B00020" />
+
         <DataTemplate DataType="{x:Type pages:RecipePickerViewModel}">
             <pages:RecipePickerPage />
         </DataTemplate>

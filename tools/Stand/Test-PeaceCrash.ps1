@@ -22,8 +22,11 @@
 [CmdletBinding()]
 param(
     [string] $AppPath = 'artifacts\setup\WindowsPeace.Setup.exe',
-    [string] $Media = 'D:\WindowsPeace-Stand\fake-media',
-    [double] $TimeoutSeconds = 30
+    [double] $TimeoutSeconds = 30,
+
+    # Что ещё передать мастеру. Описи для этой проверки не нужно: падение
+    # случается после первой отрисовки, каким бы ни был первый экран.
+    [string[]] $AppArgs = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -84,7 +87,7 @@ if (Test-Path $logFolder) {
 }
 
 $process = Start-Process -FilePath $AppPath -WorkingDirectory $appFolder `
-    -ArgumentList @('--media', $Media, '--crash') -PassThru
+    -ArgumentList (@('--crash') + $AppArgs) -PassThru
 Write-Host "Мастер запущен с ключом --crash, номер процесса $($process.Id)."
 
 $failures = @()

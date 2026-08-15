@@ -65,8 +65,12 @@ internal static class Program
         Console.WriteLine($"Каталог: {AppContext.BaseDirectory}");
         Console.WriteLine();
 
-        using var log = new JsonLinesOperationLog(
-            JsonLinesOperationLog.DefaultPath(AppContext.BaseDirectory));
+        // Тем же путём, что и мастер: несколько мест, несколько имён, и ни одна
+        // занятая папка не роняет программу. DiskDump часто запускают, когда
+        // мастер рядом ещё держит свой журнал открытым.
+        using var opened = OperationLogOpener.Open(
+            LogPlaces.InOrder(AppContext.BaseDirectory), new JsonLinesLogOpener());
+        var log = opened.Log;
 
         using var cts = new CancellationTokenSource(Timeouts.DiskEnumeration);
 
@@ -250,5 +254,11 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// Здесь нарочно не ByteSize.Format, которым мастер говорит с человеком.
+    /// Это сличение двух перечислителей поле за полем: цифры должны стоять
+    /// в столбик с одинаковым знаком после запятой, а «менее 1 МБ» и переход
+    /// на мегабайты ломают и столбик, и сравнение глазами.
+    /// </summary>
     private static string Gb(ulong bytes) => (bytes / 1024d / 1024d / 1024d).ToString("0.0") + " ГБ";
 }
