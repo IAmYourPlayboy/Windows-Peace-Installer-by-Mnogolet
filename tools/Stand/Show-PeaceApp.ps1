@@ -56,11 +56,12 @@ if (-not (Test-Path $AppPath)) {
 $AppPath = (Resolve-Path $AppPath).Path
 $appFolder = Split-Path -Parent $AppPath
 
-# Журнал прошлого запуска убирается всегда: иначе записи разных заходов
-# идут вперемешку и выдают себя за нынешние.
-$logPath = Join-Path $appFolder (Join-Path $PeaceMediaLayout.Logs $PeaceMediaLayout.LogFile)
-if (Test-Path $logPath) {
-    Remove-Item $logPath -Force -ErrorAction SilentlyContinue
+# Журналы прошлого запуска убираются всегда: иначе записи разных заходов
+# идут вперемешку и выдают себя за нынешние. Убирается вся папка, а не один
+# файл: занятое имя мастер обходит соседним, «windows-peace-2.jsonl».
+$logFolder = Join-Path $appFolder $PeaceMediaLayout.Logs
+if (Test-Path $logFolder) {
+    Remove-Item (Join-Path $logFolder '*.jsonl') -Force -ErrorAction SilentlyContinue
 }
 
 $start = @{ FilePath = $AppPath; WorkingDirectory = $appFolder; PassThru = $true }
@@ -127,12 +128,15 @@ finally {
 }
 
 if (-not $NoLog) {
-    if (Test-Path $logPath) {
+    $written = @(Get-ChildItem -LiteralPath $logFolder -Filter '*.jsonl' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending)
+
+    if ($written.Count -gt 0) {
         Write-Host ''
-        Write-Host 'Журнал запуска:' -ForegroundColor Cyan
-        Get-Content $logPath -Encoding UTF8 | Select-Object -Last 25 | ForEach-Object { Write-Host "  $_" }
+        Write-Host "Журнал запуска ($($written[0].Name)):" -ForegroundColor Cyan
+        Get-Content $written[0].FullName -Encoding UTF8 | Select-Object -Last 25 | ForEach-Object { Write-Host "  $_" }
     }
     else {
-        Write-Warning "Журнала нет: $logPath"
+        Write-Warning "Журнала нет: $logFolder"
     }
 }

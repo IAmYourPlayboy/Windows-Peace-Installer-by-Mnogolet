@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using WindowsPeace.Core.Media;
 using WindowsPeace.Setup.Infrastructure;
 using WindowsPeace.Setup.Shell;
@@ -23,7 +22,7 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
     private RecipeRowViewModel? _selectedRow;
 
     public RecipePickerViewModel(MediaManifestResult result, Action closeWizard)
-        : this(result.Message, result.Detail, closeWizard)
+        : this(result.Message, closeWizard)
     {
         if (result.Status != MediaManifestStatus.Ok)
         {
@@ -36,10 +35,9 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
         }
     }
 
-    private RecipePickerViewModel(string trouble, string? troubleDetail, Action closeWizard)
+    private RecipePickerViewModel(string trouble, Action closeWizard)
     {
         Trouble = trouble;
-        TroubleDetail = troubleDetail ?? string.Empty;
 
         // Кнопка нужна только в тупике. В WinPE окно занимает весь экран
         // и креста на нём нет: не предложи мы выход — человеку осталось бы
@@ -48,22 +46,13 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
     }
 
     /// <summary>
-    /// Носитель не найден ни на одном разделе. Перечисляем, где искали:
-    /// по этому списку видно, что мастер запущен не с носителя Windows Peace.
+    /// Носитель не найден ни на одном разделе. Где именно искали — в журнале:
+    /// человеку у флешки этот список ничего не объясняет, а разбираться по нему
+    /// будем мы.
     /// </summary>
-    public static RecipePickerViewModel WithoutMedia(IReadOnlyList<string> checkedRoots, Action closeWizard)
-    {
-        var where = checkedRoots.Count == 0
-            ? "разделов на этой машине не нашлось вовсе"
-            : string.Format(CultureInfo.CurrentCulture,
-                "искали в корне каждого раздела: {0}", string.Join(", ", checkedRoots));
-
-        return new RecipePickerViewModel(
-            "Носитель Windows Peace не найден: похоже, мастер запущен не с него. Ставить отсюда нечего.",
-            string.Format(CultureInfo.CurrentCulture,
-                "Файл описи «{0}» — {1}.", MediaLayout.ManifestFileName, where),
+    public static RecipePickerViewModel WithoutMedia(Action closeWizard)
+        => new("Носитель Windows Peace не найден: похоже, мастер запущен не с него. Ставить отсюда нечего.",
             closeWizard);
-    }
 
     public string Title => "Что ставим?";
 
@@ -72,20 +61,14 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
     /// <summary>Есть ли что показывать. Пустая таблица с заголовками ничего не объясняет.</summary>
     public bool HasRecipes => _recipes.Count > 0;
 
-    /// <summary>Пусто, когда всё в порядке. Иначе — объяснение для человека.</summary>
+    /// <summary>
+    /// Пусто, когда всё в порядке. Иначе — объяснение для человека, и только оно:
+    /// техническая причина живёт в журнале. Разбираться в наших ошибках человеку
+    /// у флешки незачем, это наша работа.
+    /// </summary>
     public string Trouble { get; }
 
-    /// <summary>
-    /// Техническая причина беды: текст разборщика, отказ файловой системы,
-    /// где искали опись. Показывается второй строкой и помельче — объяснять
-    /// ею ничего нельзя, но и прятать нечестно: человек снимет экран на телефон
-    /// и покажет тому, кто записывал ему носитель.
-    /// </summary>
-    public string TroubleDetail { get; }
-
     public bool HasTrouble => !string.IsNullOrEmpty(Trouble);
-
-    public bool HasTroubleDetail => HasTrouble && !string.IsNullOrEmpty(TroubleDetail);
 
     /// <summary>Выход из тупика. Доступна только тогда, когда идти дальше некуда.</summary>
     public RelayCommand CloseCommand { get; }

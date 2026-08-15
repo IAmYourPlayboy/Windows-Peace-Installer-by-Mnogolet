@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using WindowsPeace.Core.Diagnostics;
@@ -18,53 +17,22 @@ namespace WindowsPeace.Setup;
 public partial class App : Application
 {
     private readonly Stopwatch _sinceStart = Stopwatch.StartNew();
-    private JsonLinesOperationLog? _log;
+    private OpenedLog? _opened;
     private IOperationLog _journal = NullOperationLog.Instance;
-
-    /// <summary>
-    /// Почему журнала нет, если его нет. Молча оставлять человека без журнала
-    /// нельзя: он узнает об этом в худший момент — когда установка сорвалась
-    /// и смотреть оказалось не на что. Показывается на экране; пока экрана
-    /// для этого нет, значение хотя бы доступно тому, кто его туда доведёт.
-    /// </summary>
-    internal static string? LogProblem { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        // Место для журнала выбирается раньше всего остального. Если дальше
-        // что-то упадёт, единственным следом останется этот файл: в WinPE
-        // после перезагрузки не остаётся ни экрана, ни памяти, ни временных папок.
-        var location = LogLocationResolver.Resolve(
-            Path.Combine(AppContext.BaseDirectory, JsonLinesOperationLog.FolderName),
-            Path.Combine(HostEnvironment.RamDriveRoot, MediaLayout.AppFolderName, JsonLinesOperationLog.FolderName),
-            new RealWritabilityProbe());
-
-        // Между проверкой «сюда пишется» и открытием файла проходит время,
-        // и за него файл может оказаться занят. Уронить старт из-за журнала
-        // было бы обиднее всего: он заводится ровно затем, чтобы падения
-        // было видно. Поэтому отказ здесь — не авария, а запись без журнала.
-        if (location.IsAvailable)
-        {
-            try
-            {
-                _log = new JsonLinesOperationLog(Path.Combine(location.Directory, JsonLinesOperationLog.FileName));
-                _journal = _log;
-            }
-            catch (IOException error)
-            {
-                LogProblem = "Журнал завести не удалось: " + error.Message;
-            }
-            catch (UnauthorizedAccessException error)
-            {
-                LogProblem = "Журнал завести не удалось: " + error.Message;
-            }
-        }
-        else
-        {
-            LogProblem = location.Reason;
-        }
+        // Журнал открывается раньше всего остального. Если дальше что-то упадёт,
+        // единственным следом останется этот файл: в WinPE после перезагрузки
+        // не остаётся ни экрана, ни памяти, ни временных папок.
+        //
+        // Мест несколько, и в каждом пробуется несколько имён, поэтому ни занятый
+        // файл, ни защищённый от записи носитель не оставляют запуск без журнала.
+        // Человеку об этом не сообщается ничего: журнал нужен нам, а не ему.
+        _opened = OperationLogOpener.Open(LogPlaces.InOrder(AppContext.BaseDirectory), new JsonLinesLogOpener());
+        _journal = _opened.Log;
 
         // Падение после старта тоже должно оставлять след. Без этого журнал
         // обрывается на последней удачной точке, и непонятно, была ли ошибка
@@ -72,7 +40,13 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
 
-        Checkpoint("Место для журнала выбрано", location.Reason);
+        Checkpoint("Журнал открыт", _opened.Path);
+        foreach (var refusal in _opened.Refusals)
+        {
+            // Место не подошло — это не авария, но знать о ней надо: сегодня
+            // это занятый файл, а завтра окажется, что носитель защищён от записи.
+            Checkpoint("Место для журнала не подошло", refusal, OperationOutcome.Failure);
+        }
 
         var snapshot = HostEnvironment.Describe(new RealEnvironmentReader(_journal));
         Checkpoint("Снимок среды", snapshot.ToString());
@@ -118,7 +92,7 @@ public partial class App : Application
         {
             Checkpoint("Носитель не найден", "Описи нет ни на одном томе: " + string.Join(" ", snapshot.VolumeRoots),
                 OperationOutcome.Failure);
-            return RecipePickerViewModel.WithoutMedia(snapshot.VolumeRoots, Shutdown);
+            return RecipePickerViewModel.WithoutMedia(Shutdown);
         }
 
         var manifest = media.Load(new FileTextReader());
@@ -189,7 +163,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Checkpoint("Мастер закрыт", null);
-        _log?.Dispose();
+        _opened?.Dispose();
         base.OnExit(e);
     }
 }

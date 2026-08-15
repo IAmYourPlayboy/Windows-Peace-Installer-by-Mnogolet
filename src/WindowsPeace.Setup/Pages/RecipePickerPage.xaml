@@ -20,16 +20,13 @@
         -->
         <StackPanel Grid.Row="1"
                     Visibility="{Binding HasTrouble, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="{Binding Trouble}" TextWrapping="Wrap" Foreground="#B00020" />
-
             <!--
-                Техническая причина — второй строкой и помельче. Объяснять ею
-                ничего нельзя: приходит она от чужих библиотек и бывает
-                по-английски. Прятать тоже нечестно — по ней разбираются потом.
+                Только объяснение своими словами. Техническая причина — текст
+                разборщика, отказ файловой системы — на экран не выносится
+                и целиком уходит в журнал: разбираться в наших ошибках человеку
+                у флешки незачем, это наша работа. Решение автора.
             -->
-            <TextBlock Text="{Binding TroubleDetail}" TextWrapping="Wrap" Foreground="#666666"
-                       FontSize="11" Margin="0,8,0,0"
-                       Visibility="{Binding HasTroubleDetail, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Text="{Binding Trouble}" TextWrapping="Wrap" Foreground="#B00020" />
 
             <Button Content="Закрыть мастер" Command="{Binding CloseCommand}"
                     HorizontalAlignment="Left" Margin="0,16,0,0" Padding="10,4" />

@@ -38,6 +38,18 @@ public sealed class JsonLinesOperationLog : IOperationLog, IDisposable
     public static string DefaultPath(string baseDirectory)
         => Path.Combine(baseDirectory, FolderName, FileName);
 
+    /// <summary>
+    /// Имя журнала для попытки с этим номером. Первая попытка — обычное имя,
+    /// дальше с номером: занятый файл (рядом работает второй наш запуск)
+    /// не повод остаться без журнала на весь запуск.
+    /// </summary>
+    public static string FileNameFor(int attempt)
+        => attempt <= 1
+            ? FileName
+            : Path.GetFileNameWithoutExtension(FileName)
+              + "-" + attempt.ToString(CultureInfo.InvariantCulture)
+              + Path.GetExtension(FileName);
+
     public void Write(OperationRecord record)
     {
         var line = new StringBuilder()

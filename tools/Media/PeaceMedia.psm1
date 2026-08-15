@@ -258,11 +258,23 @@ function Get-PeaceMediaLog {
     Use-PeaceMedia -VhdxPath $VhdxPath -Action {
         param($root)
 
-        $logPath = Join-Path $root (Join-Path $PeaceMediaLayout.App (Join-Path $PeaceMediaLayout.Logs $PeaceMediaLayout.LogFile))
-        if (-not (Test-Path $logPath)) {
-            Write-Warning "Журнала на носителе нет: $logPath. Мастер не дошёл до записи или писать было некуда."
+        # Имя файла не одно: если прежнее оказалось занято, мастер пишет
+        # в соседнее — «windows-peace-2.jsonl» и дальше. Брать надо по расширению,
+        # а не по одному имени, иначе журнал запуска молча пропадёт из виду.
+        $logFolder = Join-Path $root (Join-Path $PeaceMediaLayout.App $PeaceMediaLayout.Logs)
+        $files = @(Get-ChildItem -LiteralPath $logFolder -Filter '*.jsonl' -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+
+        if ($files.Count -eq 0) {
+            Write-Warning "Журнала на носителе нет: $logFolder. Мастер не дошёл до записи или писать было некуда."
             return @()
         }
+
+        if ($files.Count -gt 1) {
+            Write-Warning "Журналов на носителе несколько ($($files.Name -join ', ')). Беру свежий: $($files[0].Name)."
+        }
+
+        $logPath = $files[0].FullName
 
         $lines = Get-Content $logPath -Encoding UTF8
         if ($OutPath) {

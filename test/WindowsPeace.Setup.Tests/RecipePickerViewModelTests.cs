@@ -63,17 +63,20 @@ public class RecipePickerViewModelTests
 
     /// <summary>
     /// Текст разборщика JSON приходит по-английски и объясняет человеку у флешки
-    /// ровно ничего. Он остаётся на экране, но второй строкой и как подробность,
-    /// а не как объяснение. Дефект нашёлся при взгляде на экран.
+    /// ровно ничего. На экран он не попадает вовсе — только в журнал, разбираться
+    /// в наших ошибках человеку незачем. Решение автора.
     /// </summary>
     [Fact]
-    public void Технический_текст_идёт_подробностью_а_не_объяснением()
+    public void Технический_текст_на_экран_не_попадает()
     {
-        var page = Screen(MediaManifestReader.Read("{ мусор"));
+        var damaged = MediaManifestReader.Read("{ мусор");
+        var page = Screen(damaged);
 
         Assert.DoesNotContain("json", page.Trouble, StringComparison.OrdinalIgnoreCase);
-        Assert.True(page.HasTroubleDetail);
-        Assert.False(string.IsNullOrEmpty(page.TroubleDetail));
+        Assert.Equal(damaged.Message, page.Trouble);
+
+        // А в журнал причина уходит: без неё разбирать нечего.
+        Assert.False(string.IsNullOrEmpty(damaged.Detail));
     }
 
     [Fact]
@@ -101,25 +104,12 @@ public class RecipePickerViewModelTests
     [Fact]
     public void Носитель_не_найден_вовсе()
     {
-        var page = RecipePickerViewModel.WithoutMedia(new[] { @"C:\", @"X:\" }, () => { });
+        var page = RecipePickerViewModel.WithoutMedia(() => { });
 
+        Assert.Empty(page.Recipes);
         Assert.False(page.CanGoNext);
+        Assert.True(page.HasTrouble);
         Assert.Contains("не найден", page.Trouble, StringComparison.Ordinal);
-
-        // Где искали и что искали — подробностью: объяснение от этого списка
-        // понятнее не становится, а разбираться по нему придётся.
-        Assert.Contains("C:", page.TroubleDetail, StringComparison.Ordinal);
-        Assert.Contains("X:", page.TroubleDetail, StringComparison.Ordinal);
-        Assert.Contains(MediaLayout.ManifestFileName, page.TroubleDetail, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Когда_разделов_нет_вовсе_так_и_говорится()
-    {
-        var page = RecipePickerViewModel.WithoutMedia(Array.Empty<string>(), () => { });
-
-        Assert.False(page.CanGoNext);
-        Assert.Contains("не нашлось вовсе", page.TroubleDetail, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -147,7 +137,6 @@ public class RecipePickerViewModelTests
 
         Assert.False(page.HasTrouble);
         Assert.Equal(string.Empty, page.Trouble);
-        Assert.False(page.HasTroubleDetail);
         Assert.False(page.CloseCommand.CanExecute(null));
     }
 }
