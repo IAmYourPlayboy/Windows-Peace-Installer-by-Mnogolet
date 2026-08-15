@@ -41,6 +41,11 @@ param(
     [switch] $SkipPublish,
 
     [string] $VhdxPath = 'D:\WindowsPeace-Stand\peace.vhdx',
+
+    # Пустой диск, на который мастер мог бы ставить. Без него в стенде один
+    # диск — сам носитель, а установка на него запрещена по замыслу.
+    # Пустая строка — круг без цели, как было до появления третьего экрана.
+    [string] $TargetVhdxPath = 'D:\WindowsPeace-Stand\target.vhdx',
     [string] $AppFolder = 'artifacts\setup',
     [string] $DiskDumpFolder,
     [string] $OutFolder = 'D:\WindowsPeace-Stand\round',
@@ -52,6 +57,11 @@ param(
     [string] $Run,
     [switch] $NoRun,
     [switch] $KeepRunning,
+
+    # Что нажать в окне, когда оно появится: «{Tab}», «{Down}», «{Enter}» —
+    # клавиши, всё остальное набирается как текст. Мыши у стенда нет, и дальше
+    # первого экрана без этого не пройти.
+    [string[]] $Then = @(),
 
     # Где искать носитель в WinPE. Буквы там непредсказуемы: раздел данных
     # однажды оказался C:, и опираться на них нельзя — только перебор.
@@ -105,6 +115,7 @@ if (-not (Test-Path $OutFolder)) { New-Item -ItemType Directory -Force -Path $Ou
 $bootShot = Join-Path $OutFolder '01-boot.png'
 $cmdShot  = Join-Path $OutFolder '02-cmd.png'
 $runShot  = Join-Path $OutFolder '03-run.png'
+$thenShot = Join-Path $OutFolder '04-then.png'
 $logCopy  = Join-Path $OutFolder $PeaceMediaLayout.LogFile
 
 # ---------- 1. приложение ----------
@@ -168,7 +179,8 @@ else {
 # ---------- 4. виртуалка ----------
 
 Write-Step 'Создаю виртуалку и включаю её...'
-& (Join-Path $PSScriptRoot 'New-PeaceVm.ps1') -Name $VmName -VhdxPath $VhdxPath | Out-Null
+& (Join-Path $PSScriptRoot 'New-PeaceVm.ps1') -Name $VmName -VhdxPath $VhdxPath `
+    -TargetVhdxPath $TargetVhdxPath | Out-Null
 Start-VM -Name $VmName | Out-Null
 
 $settled = $true
@@ -221,14 +233,14 @@ try {
             $line = "for %d in ($SearchLetters) do @if exist %d:\$($PeaceMediaLayout.Manifest) %d:\$Run"
 
             Write-Step "Набираю: $line"
-            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Text $line | Out-Null
+            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send $line | Out-Null
 
             # Кадр снимается после набора, но до Enter: иначе появившийся
             # на экране текст сам по себе сойдёт за «что-то изменилось».
             Start-Sleep -Milliseconds 700
             $typed = Get-PeaceVmFrame -Name $VmName
 
-            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Enter | Out-Null
+            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send '{Enter}' | Out-Null
 
             Write-Step 'Жду, пока на экране появится приложение...'
             # Порог в пятую часть экрана отделяет окно во весь экран от того,
@@ -247,6 +259,34 @@ try {
             }
             else {
                 Write-Step "Приложение на экране. Снимок: $runShot"
+            }
+
+            # ---------- 8. пройти по экранам ----------
+
+            if ($Then.Count -gt 0 -and $app.Settled) {
+                Write-Step "Нажимаю в окне: $($Then -join ' ')"
+                & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send $Then | Out-Null
+
+                # Имя нарочно не $then: так зовётся параметр, а переменная
+                # параметра сохраняет свой тип [string[]] и молча превращает
+                # присвоенный объект в строку. Уже поймано.
+                $afterKeys = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
+                    -TimeoutSeconds 60 -StableSeconds 2 `
+                    -DifferentFrom $app.Frame -MinDifference 0.02 `
+                    -What 'экран после нажатий'
+
+                # Снимок нужен в обоих случаях: не туда пришли — это тоже ответ,
+                # и увидеть его надо на картинке, а не гадать по отказу.
+                if ($afterKeys.Frame) { Save-PeaceFrame -Frame $afterKeys.Frame -Path $thenShot }
+                if (-not $afterKeys.Settled) {
+                    $settled = $false
+                    $trouble += 'Экран после нажатий не устоялся: ' + $afterKeys.Reason
+                    Write-Warning $afterKeys.Reason
+                    Write-Warning "Последний кадр всё равно снят: $thenShot"
+                }
+                else {
+                    Write-Step "Экран после нажатий. Снимок: $thenShot"
+                }
             }
         }
     }

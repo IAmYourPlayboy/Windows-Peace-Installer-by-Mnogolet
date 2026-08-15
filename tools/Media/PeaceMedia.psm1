@@ -52,10 +52,40 @@ function Assert-PeaceAdmin {
     }
 }
 
+function Test-PeaceVhdxDescends {
+    <#
+    .SYNOPSIS
+        Стоит ли искомый диск в родословной этого — им самим или предком.
+
+    .DESCRIPTION
+        Виртуалка держит не всегда тот файл, который ей дали. Снимок состояния
+        подкладывает поверх него «peace_{номер}.avhdx», а исходный файл
+        становится его родителем. Сравнение путей в лоб такую виртуалку
+        не находит — и носитель считается свободным, будучи занятым.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)] [string] $Path,
+        [Parameter(Mandatory = $true)] [string] $Target,
+        [int] $MaxDepth = 16
+    )
+
+    $current = $Path
+    for ($depth = 0; $depth -lt $MaxDepth -and $current; $depth++) {
+        if ($current -eq $Target) { return $true }
+
+        $vhd = Get-VHD -Path $current -ErrorAction SilentlyContinue
+        if (-not $vhd) { return $false }
+        $current = $vhd.ParentPath
+    }
+
+    $false
+}
+
 function Get-PeaceVhdxHolder {
     <#
     .SYNOPSIS
-        Какие виртуалки держат этот виртуальный диск.
+        Какие виртуалки держат этот виртуальный диск — сам или через снимок.
 
     .DESCRIPTION
         Занятый диск не удалить и не пересобрать. Без этой проверки сборка
@@ -71,7 +101,7 @@ function Get-PeaceVhdxHolder {
 
     @(Get-VM -ErrorAction SilentlyContinue |
         Get-VMHardDiskDrive -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -eq $full } |
+        Where-Object { Test-PeaceVhdxDescends -Path $_.Path -Target $full } |
         ForEach-Object { $_.VMName } |
         Select-Object -Unique)
 }
@@ -163,6 +193,14 @@ function Use-PeaceMedia {
     $disk = Get-VHD -Path $VhdxPath
     if ($disk.Attached) {
         $diskNumber = $disk.DiskNumber
+
+        # «Подключён, а номера нет» значит, что подключён он не к этой системе,
+        # а к чему-то ещё. Пустой номер превращается в ноль, и дальше вся работа
+        # пошла бы по диску 0 хозяйской машины. Так уже случалось: носитель
+        # держала виртуалка через снимок состояния.
+        if ($null -eq $diskNumber) {
+            throw "Носитель '$VhdxPath' подключён, но не к этой системе: номера диска у него нет. Скорее всего, его держит виртуалка через снимок состояния."
+        }
     }
     else {
         $diskNumber = (Mount-VHD -Path $VhdxPath -Passthru | Get-Disk).Number

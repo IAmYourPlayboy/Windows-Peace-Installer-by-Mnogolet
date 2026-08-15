@@ -29,6 +29,11 @@
     Вызывать здесь надо через «&», а не через «powershell -File»: последний
     передаёт массив одной строкой, ключ до мастера не доходит, и выглядит это
     как будто носитель просто не нашёлся.
+
+.EXAMPLE
+    & .\tools\Stand\Show-PeaceApp.ps1 -OutPath app.png -Advance 2 -AppArgs @('--media', 'D:\проба')
+    Доходит до третьего экрана: на каждом выбирает первую доступную строку
+    и нажимает «Далее». Снимает то, что вышло.
 #>
 [CmdletBinding()]
 param(
@@ -42,12 +47,22 @@ param(
     # над экранами пришлось бы делать в WinPE.
     [string[]] $AppArgs = @(),
 
+    # Сколько экранов пройти вперёд, прежде чем снимать. На каждом выбирается
+    # первая доступная строка и нажимается «Далее». Без этого работа над
+    # третьим экраном требовала бы человека с мышью.
+    [int] $Advance = 0,
+
+    # Что вписать в поле ввода на последнем экране. Для сводки это модель диска:
+    # подтверждение вводом иначе не проверить.
+    [string] $TypeText,
+
     [switch] $KeepOpen,
     [switch] $NoLog
 )
 
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PeaceFrames.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'PeaceUia.psm1') -Force
 Import-Module (Join-Path (Split-Path -Parent $PSScriptRoot) 'Media\PeaceMedia.psm1') -Force
 
 if (-not (Test-Path $AppPath)) {
@@ -76,7 +91,7 @@ try {
     $handle = [IntPtr]::Zero
     while ((Get-Date) -lt $deadline) {
         if ($process.HasExited) {
-            throw "Мастер завершился сам, код $($process.ExitCode). Окна не было. Смотри журнал: $logPath"
+            throw "Мастер завершился сам, код $($process.ExitCode). Окна не было. Смотри журнал: $logFolder"
         }
 
         $process.Refresh()
@@ -88,11 +103,30 @@ try {
     }
 
     if ($handle -eq [IntPtr]::Zero) {
-        throw "Окно не появилось за $TimeoutSeconds с. Мастер жив, но ничего не нарисовал. Смотри журнал: $logPath"
+        throw "Окно не появилось за $TimeoutSeconds с. Мастер жив, но ничего не нарисовал. Смотри журнал: $logFolder"
     }
 
     # Запущенное из фоновой оболочки окно приходит свёрнутым.
     [void][WindowsPeace.Stand.NativeWindow]::ShowWindow($handle, [WindowsPeace.Stand.NativeWindow]::ShowNoActivate)
+
+    $window = Get-PeaceWindowElement -WindowHandle $handle
+
+    # ---------- пройти вперёд по экранам ----------
+    if ($Advance -gt 0 -or $TypeText) {
+        for ($step = 1; $step -le $Advance; $step++) {
+            $chosen = Select-PeaceFirstItem -Root $window -TimeoutSeconds $TimeoutSeconds
+            Write-Host "Экран $step`: выбрано «$chosen»."
+
+            # Ожидание, пока «Далее» оживёт, — половина проверки: кнопка оживает
+            # тогда и только тогда, когда выбор дошёл до модели экрана.
+            Invoke-PeaceButton -Root $window -Name 'Далее' -TimeoutSeconds $TimeoutSeconds
+        }
+
+        if ($TypeText) {
+            Set-PeaceText -Root $window -Text $TypeText -TimeoutSeconds $TimeoutSeconds
+            Write-Host "Вписано в поле: «$TypeText»."
+        }
+    }
 
     # ---------- дождаться, пока оно дорисуется ----------
     $wait = Wait-PeaceStableFrame -Capture { Get-PeaceWindowFrame -WindowHandle $handle } `
@@ -110,6 +144,20 @@ try {
     else {
         Write-Warning $wait.Reason
         if ($wait.Frame) { Write-Warning "Снят последний кадр: $OutPath" }
+    }
+
+    # Что написано на экране словами. Пустая строка там, где ждали значение, —
+    # самый частый след опечатки в привязке: тесты при этом зелёные.
+    Write-Host ''
+    Write-Host 'Что написано на экране:' -ForegroundColor Cyan
+    foreach ($line in (Get-PeaceScreenText -Root $window)) { Write-Host "  $line" }
+
+    foreach ($name in @('Назад', 'Далее', 'Установить')) {
+        $button = Get-PeaceButton -Root $window -Name $name
+        if ($button) {
+            $state = if ($button.Current.IsEnabled) { 'доступна' } else { 'выключена' }
+            Write-Host "  [кнопка «$name» — $state]"
+        }
     }
 }
 finally {
