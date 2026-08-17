@@ -9,7 +9,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Margin="0,0,0,12" TextWrapping="Wrap"
-                   Text="Выберите, что установить. В списке — то, что записано на этом носителе."
+                   Text="Выберите, что установить. В списке - то, что записано на этом носителе."
                    Visibility="{Binding HasRecipes, Converter={StaticResource BoolToVisibility}}" />
 
         <!--

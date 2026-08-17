@@ -23,7 +23,4 @@ public interface IWizardChoice
 
     /// <summary>Все диски машины: по ним видно, не стоит ли Windows на соседнем.</summary>
     IReadOnlyList<DiskInfo> Disks { get; }
-
-    /// <summary>Требовать ли ввод модели диска руками.</summary>
-    bool RequiresTypedConfirmation { get; }
 }

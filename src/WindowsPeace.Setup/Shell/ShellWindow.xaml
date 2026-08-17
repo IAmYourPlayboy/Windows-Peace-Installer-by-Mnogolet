@@ -3,54 +3,77 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Windows Peace" Height="720" Width="1024"
         WindowStartupLocation="CenterScreen"
+        Background="{StaticResource FieldLeftBrush}"
+        Foreground="{StaticResource InkBrush}"
         FontFamily="Segoe UI, Tahoma, Microsoft Sans Serif">
     <!--
         Цепочка шрифтов, а не один. Обычного начертания Segoe UI в образе WinPE
-        нет — есть жирное, курсив и светлое; обычное лежит отдельным файлом
+        нет - есть жирное, курсив и светлое; обычное лежит отдельным файлом
         в sources\segoeui.ttf и подгружается установщиком Windows на время
         своей работы. Проверено чтением образа. Tahoma и Microsoft Sans Serif
         в образе есть, и обе с кириллицей.
     -->
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="24" Margin="0,0,0,16" />
-
-        <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" Focusable="False" />
-
-        <Grid Grid.Row="2" Margin="0,16,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <!--
-                    Выход один на все экраны и всегда здесь. В WinPE окно занимает
-                    весь экран и крестика на нём нет — без этой кнопки оставалось бы
-                    выключить машину из розетки, а такой кнопки в установщике
-                    Microsoft человек не видел и искать её в углу не догадается.
-                    Поэтому она подписана прямо, «Выйти из установщика», и стоит
-                    в нижнем ряду вместе с переходами. От «Далее» её отделяет и
-                    «Назад», и заметный зазор: задеть выход вместо перехода нельзя.
-                -->
-                <Button Content="Выйти из установщика" Command="{Binding CloseCommand}"
-                        AutomationProperties.AutomationId="Close"
-                        Height="34" Padding="12,0" Margin="0,0,32,0" />
-
-                <Button Content="Назад" Command="{Binding BackCommand}"
-                        AutomationProperties.AutomationId="Back"
-                        MinWidth="120" Height="34" Padding="12,0" Margin="0,0,12,0" />
-
-                <!--
-                    Слово на кнопке даёт сама страница: после сводки это «Установить».
-                    Поэтому у кнопок есть и неизменные метки: средства проверки
-                    ищут «кнопку вперёд», а не слово, которое сегодня одно,
-                    а завтра другое.
-                -->
-                <Button Content="{Binding NextTitle}" Command="{Binding NextCommand}"
-                        AutomationProperties.AutomationId="Next"
-                        MinWidth="120" Height="34" Padding="12,0" IsDefault="True" />
-            </StackPanel>
+    <Grid>
+        <!--
+            Поля вокруг окна. Два цвета, распределённые не поровну: лаванды
+            больше, зелёный - уже, чтобы делёж не читался как «пополам».
+            Белое окно ложится сверху с отступом, и поля видны по краям.
+        -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.5*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="{StaticResource FieldLeftBrush}" />
+            <Border Grid.Column="1" Background="{StaticResource FieldRightBrush}" />
         </Grid>
+
+        <!--
+            Само окно мастера: белое, по центру, с полями по краям. Отступ снизу
+            больше - там, в поле, стоит выход. Заголовок, текущий экран и переходы
+            «Назад»/«Далее» живут внутри окна; выход - снаружи, чтобы его нельзя
+            было принять за переход.
+        -->
+        <Border Background="{StaticResource PanelBrush}" CornerRadius="12"
+                Margin="72,40,72,64" Padding="32,28" SnapsToDevicePixels="True">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="24" Margin="0,0,0,16" />
+
+                <ContentControl x:Name="PageHost" Grid.Row="1" Content="{Binding CurrentPage}" Focusable="False" />
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                    <Button Content="Назад" Command="{Binding BackCommand}"
+                            AutomationProperties.AutomationId="Back"
+                            MinWidth="120" Height="36" Margin="0,0,12,0" />
+
+                    <!--
+                        Слово на кнопке даёт сама страница: после сводки это «Установить».
+                        Неизменная метка - AutomationId: средства проверки ищут «кнопку
+                        вперёд», а не слово, которое сегодня одно, а завтра другое.
+                    -->
+                    <Button Content="{Binding NextTitle}" Command="{Binding NextCommand}"
+                            AutomationProperties.AutomationId="Next"
+                            MinWidth="120" Height="36" IsDefault="True" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--
+            Выход один на все экраны и всегда здесь, в поле справа снизу, снаружи
+            белого окна. В WinPE окно занимает весь экран и крестика на нём нет -
+            без этой кнопки оставалось бы выключить машину из розетки. Такой
+            кнопки в установщике Microsoft человек не видел, поэтому она подписана
+            прямо и стои́т отдельно от «Далее»: задеть выход вместо перехода нельзя.
+        -->
+        <Button Content="Выйти из установщика" Command="{Binding CloseCommand}"
+                AutomationProperties.AutomationId="Close"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="0,0,72,16" Height="36" />
     </Grid>
 </Window>

@@ -104,6 +104,67 @@ public class DiskPickerViewModelTests
     }
 
     [Fact]
+    public async Task Диск_развёрнут_по_умолчанию_и_разделы_видны()
+    {
+        var partition = new PartitionInfo(1, 1048576UL, 100 * Gib, PartitionKind.BasicData, 'C', false, false, null);
+        var model = await CreateAsync(Disk("A", 500 * Gib, partitions: new[] { partition }));
+
+        var disk = model.Rows.First(r => r.Kind == RowKind.Disk);
+
+        Assert.True(disk.IsExpanded);
+        Assert.Contains(model.Rows, r => r.Kind == RowKind.Partition);
+    }
+
+    [Fact]
+    public async Task Свернуть_диск_убирает_его_разделы_и_незанятое_а_сам_диск_остаётся()
+    {
+        var partition = new PartitionInfo(1, 1048576UL, 100 * Gib, PartitionKind.BasicData, 'C', false, false, null);
+        var model = await CreateAsync(Disk("A", 500 * Gib, partitions: new[] { partition }));
+        var disk = model.Rows.First(r => r.Kind == RowKind.Disk);
+
+        model.Toggle(disk);
+
+        Assert.False(disk.IsExpanded);
+        Assert.DoesNotContain(model.Rows, r => r.Kind == RowKind.Partition);
+        Assert.DoesNotContain(model.Rows, r => r.Kind == RowKind.FreeSpace);
+        Assert.Contains(model.Rows, r => r == disk);
+    }
+
+    [Fact]
+    public async Task Развернуть_обратно_возвращает_разделы()
+    {
+        var partition = new PartitionInfo(1, 1048576UL, 100 * Gib, PartitionKind.BasicData, 'C', false, false, null);
+        var model = await CreateAsync(Disk("A", 500 * Gib, partitions: new[] { partition }));
+        var disk = model.Rows.First(r => r.Kind == RowKind.Disk);
+
+        model.Toggle(disk);
+        model.Toggle(disk);
+
+        Assert.True(disk.IsExpanded);
+        Assert.Contains(model.Rows, r => r.Kind == RowKind.Partition);
+    }
+
+    /// <summary>
+    /// Невыбираемый диск (носитель, система) не сворачивается: его строка
+    /// отключена, чтобы клавиатура её пропускала, а отключённую строку не свернуть.
+    /// Стрелки у неё нет (CanToggle=false), и Toggle на ней ничего не делает.
+    /// </summary>
+    [Fact]
+    public async Task Невыбираемый_диск_не_сворачивается()
+    {
+        var partition = new PartitionInfo(1, 1048576UL, 100 * Gib, PartitionKind.BasicData, 'C', false, false, null);
+        var model = await CreateAsync(Disk("A", 500 * Gib, isSystem: true, partitions: new[] { partition }));
+        var disk = model.Rows.First(r => r.Kind == RowKind.Disk);
+        Assert.False(disk.IsSelectable);
+        Assert.False(disk.CanToggle);
+
+        model.Toggle(disk);
+
+        Assert.True(disk.IsExpanded);
+        Assert.Contains(model.Rows, r => r.Kind == RowKind.Partition);
+    }
+
+    [Fact]
     public async Task Пока_ничего_не_выбрано_идти_дальше_нельзя()
     {
         var model = await CreateAsync(Disk("A", 500 * Gib));
@@ -112,14 +173,13 @@ public class DiskPickerViewModelTests
     }
 
     [Fact]
-    public async Task Выбор_допустимого_диска_разрешает_идти_дальше_и_строит_план()
+    public async Task Выбор_допустимого_диска_разрешает_идти_дальше()
     {
         var model = await CreateAsync(Disk("A", 500 * Gib));
 
         model.Selected = model.Rows.First(r => r.Kind == RowKind.Disk);
 
         Assert.True(model.CanGoNext);
-        Assert.Contains("EFI", model.PlanSummary);
     }
 
     [Fact]

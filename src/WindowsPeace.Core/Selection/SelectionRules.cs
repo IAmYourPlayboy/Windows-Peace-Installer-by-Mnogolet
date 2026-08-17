@@ -46,7 +46,7 @@ public static class SelectionRules
     {
         if (disk.IsWindowsPeaceMedia)
         {
-            return SelectionVerdict.Denied("Это загрузочный носитель Windows Peace — установка сюда невозможна");
+            return SelectionVerdict.Denied("Это загрузочный носитель Windows Peace - установка сюда невозможна");
         }
 
         if (disk.IsSystem || disk.IsBoot)

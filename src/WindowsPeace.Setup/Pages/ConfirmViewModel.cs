@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Infrastructure;
@@ -8,14 +7,15 @@ using WindowsPeace.Setup.Shell;
 namespace WindowsPeace.Setup.Pages;
 
 /// <summary>
-/// Сводка перед установкой — последний экран, где можно отступить.
+/// Сводка перед установкой - последний экран, где можно отступить.
 ///
 /// Собирается при входе, а не при создании: в момент создания мастера диск
 /// ещё не выбран, а человек может вернуться назад и выбрать другой.
 ///
-/// Подтверждение вводом модели диска — требование раздела 8 архитектуры,
-/// а не украшение: инструмент раздаётся незнакомым людям и стирает диски
-/// с их данными, поэтому последнее действие должно быть осознанным.
+/// Подтверждение вводом модели диска убрано по приёмке 17.08.2026: шаг Б ничего
+/// на диск не пишет, а настоящий барьер стирания - задача шага В, где он и будет
+/// спроектирован заново. См.
+/// docs/superpowers/specs/2026-08-17-step-b-hardware-feedback-design.md.
 /// </summary>
 public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
 {
@@ -27,14 +27,10 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
     private string _planSummary = string.Empty;
     private string _planEffect = string.Empty;
     private string _trouble = string.Empty;
-    private bool _needsTypedConfirmation;
-    private IReadOnlyList<PlanWarning> _warnings = Array.Empty<PlanWarning>();
-    private string _typedModel = string.Empty;
 
     /// <summary>
     /// Собрана ли сводка. До входа на экран показывать нечего, и пускать дальше
-    /// тоже: пустое поле совпало бы с пустой моделью, и «Установить» ожила бы
-    /// на экране, которого никто не видел.
+    /// тоже.
     /// </summary>
     private bool _described;
 
@@ -58,14 +54,14 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
         private set => Set(ref _recipeName, value);
     }
 
-    /// <summary>Модель целевого диска. Её же человек вводит руками.</summary>
+    /// <summary>Модель целевого диска.</summary>
     public string DiskModel
     {
         get => _diskModel;
         private set => Set(ref _diskModel, value);
     }
 
-    /// <summary>Объём, шина и опознавательный признак диска.</summary>
+    /// <summary>Объём и шина диска.</summary>
     public string DiskSummary
     {
         get => _diskSummary;
@@ -80,28 +76,23 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
     }
 
     /// <summary>
-    /// Что случится с тем, что на диске есть сейчас. Столбик будущих размеров
-    /// об этом не говорит, а на пустом диске не будет и предупреждений.
+    /// Что случится с тем, что на диске есть сейчас. Пусто при установке в раздел:
+    /// там эту мысль несёт сам PlanSummary, и повторять её дважды незачем.
     /// </summary>
     public string PlanEffect
     {
         get => _planEffect;
-        private set => Set(ref _planEffect, value);
+        private set
+        {
+            if (Set(ref _planEffect, value))
+            {
+                Raise(nameof(HasPlanEffect));
+            }
+        }
     }
 
-    /// <summary>Предупреждения правил выбора. Здесь они не сочиняются заново.</summary>
-    public IReadOnlyList<PlanWarning> Warnings
-    {
-        get => _warnings;
-        private set => Set(ref _warnings, value);
-    }
-
-    /// <summary>Требуется ли ввести модель диска руками.</summary>
-    public bool NeedsTypedConfirmation
-    {
-        get => _needsTypedConfirmation;
-        private set => Set(ref _needsTypedConfirmation, value);
-    }
+    /// <summary>Есть ли что сказать про судьбу нынешнего содержимого диска.</summary>
+    public bool HasPlanEffect => !string.IsNullOrEmpty(_planEffect);
 
     /// <summary>
     /// Пусто, когда всё в порядке. Иначе — объяснение для человека, и только оно:
@@ -121,41 +112,16 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
 
     public bool HasTrouble => !string.IsNullOrEmpty(_trouble);
 
-    /// <summary>Модель диска, набранная человеком.</summary>
-    public string TypedModel
-    {
-        get => _typedModel;
-        set
-        {
-            // Привязка из разметки не обязана считаться с тем, что тип
-            // не допускает пустоты: пустое значение уронило бы сравнение.
-            if (Set(ref _typedModel, value ?? string.Empty))
-            {
-                Raise(nameof(CanGoNext));
-                CanGoNextChanged?.Invoke(this, EventArgs.Empty);
-            }
-        }
-    }
-
     /// <summary>
-    /// Сравнение без учёта регистра и пробелов по краям: человек переписывает
-    /// строку с экрана, и придираться к пробелу — издевательство. Всё остальное
-    /// должно совпасть в точности.
+    /// Войдя на экран с выбранным рецептом и диском, дальше можно идти сразу:
+    /// подтверждать вводом больше нечего. Не пускает только потерянный выбор.
     /// </summary>
-    public bool CanGoNext => _described && !HasTrouble &&
-        (!_needsTypedConfirmation ||
-         string.Equals(_typedModel.Trim(), _diskModel, StringComparison.OrdinalIgnoreCase));
+    public bool CanGoNext => _described && !HasTrouble;
 
     public event EventHandler? CanGoNextChanged;
 
     public void OnEnter()
     {
-        // Введённое раньше относилось к прежнему выбору. Человек мог сходить
-        // назад и поменять диск — тогда подтверждение уже ничего не значит,
-        // и дать его надо заново.
-        _typedModel = string.Empty;
-        Raise(nameof(TypedModel));
-
         Describe();
 
         Raise(nameof(CanGoNext));
@@ -186,16 +152,8 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
         PlanSummary = plan.Summary;
         PlanEffect = plan.WipesWholeDisk
             ? "Диск будет размечен заново. Всё, что на нём сейчас есть, исчезнет безвозвратно."
-            : "Остальные разделы этого диска не изменяются.";
-        Warnings = SelectionRules.Warnings(target, _choice.Disks);
-        NeedsTypedConfirmation = _choice.RequiresTypedConfirmation;
-
-        // Устройство может не ответить даже на запрос своего имени. Пустое поле
-        // совпало бы с пустой моделью, и подтверждение выродилось бы в нажатие
-        // кнопки, то есть в ничто.
-        Trouble = NeedsTypedConfirmation && DiskModel.Length == 0
-            ? "У этого диска не читается модель, и подтвердить выбор нечем. Вернитесь назад и выберите другой диск."
             : string.Empty;
+        Trouble = string.Empty;
     }
 
     /// <summary>Забыть сводку целиком: показывать половину — хуже, чем ничего.</summary>
@@ -207,7 +165,5 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
         DiskSummary = string.Empty;
         PlanSummary = string.Empty;
         PlanEffect = string.Empty;
-        Warnings = Array.Empty<PlanWarning>();
-        NeedsTypedConfirmation = false;
     }
 }

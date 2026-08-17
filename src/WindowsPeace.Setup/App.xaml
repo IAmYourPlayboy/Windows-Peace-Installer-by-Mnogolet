@@ -21,9 +21,76 @@
         <SolidColorBrush x:Key="TroubleBrush" Color="#B00020" />
 
         <!--
-            Предупреждение выглядит одинаково везде, где показывается: при выборе
-            диска и в сводке перед установкой. Два шаблона на одну сущность
-            разъехались бы, и об одной и той же беде человек читал бы по-разному.
+            Поля вокруг центрального окна и само окно. Один набор на всё
+            приложение: цвет, записанный числом в каждой разметке, разъезжается
+            при первой правке. Менять вид полей - здесь и только здесь.
+            Лаванда слева, зелёный справа - мягкие, чтобы белое окно в центре
+            оставалось главным.
+        -->
+        <SolidColorBrush x:Key="FieldLeftBrush" Color="#E9DEF9" />
+        <SolidColorBrush x:Key="FieldRightBrush" Color="#EAF2D4" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="InkBrush" Color="#1B1B19" />
+
+        <!--
+            Кнопки со скруглением. Стиль без ключа - общий на все кнопки
+            приложения, чтобы «Далее», «Назад», выход и кнопки операций над
+            диском выглядели одинаково, а скругление задавалось в одном месте.
+        -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#F2F1EB" />
+            <Setter Property="BorderBrush" Value="#B7B5AC" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Padding" Value="14,6" />
+            <!--
+                Свой признак фокуса - синяя рамка ниже. Стандартный пунктир
+                отключаем, чтобы под фокусом не было двух обводок разом.
+            -->
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#E6E4DC" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#D9D7CE" />
+                            </Trigger>
+                            <!--
+                                Кнопка под фокусом клавиатуры обведена заметно. Без этого
+                                переход по Tab не виден: человек жмёт Tab, а на экране
+                                ничего не меняется - ровно на это и жаловались.
+                            -->
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#3D6FD6" />
+                                <Setter TargetName="Chrome" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsDefaulted" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#3D6FD6" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            Общий вид предупреждения. Сейчас на экранах не показывается: по приёмке
+            17.08.2026 предупреждения убраны со сводки и выбора диска (шаг Б ничего
+            не пишет). Шаблон оставлен как общий ресурс - на шаге В предупреждения
+            вернутся в момент настоящего стирания, и вид у них будет один.
             Важное отличается цветом: «здесь будут потери» и «прими к сведению» —
             это разные вещи, и различать их человек должен не вчитываясь.
         -->

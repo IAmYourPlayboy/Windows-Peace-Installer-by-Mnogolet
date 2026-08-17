@@ -18,8 +18,12 @@ namespace WindowsPeace.Setup.Infrastructure;
 /// </summary>
 public sealed class RemainingWidthConverter : IMultiValueConverter
 {
-    /// <summary>Запас на рамку списка и полосу прокрутки.</summary>
-    private const double Chrome = 28;
+    /// <summary>
+    /// Запас на рамку списка, вертикальную полосу прокрутки и линии между
+    /// столбцами. Взят с запасом: если его не хватит, у таблицы вылезет
+    /// горизонтальная полоса - на экране выбора диска это уже ловили.
+    /// </summary>
+    private const double Chrome = 44;
 
     /// <summary>Уже этого столбец делать бессмысленно — лучше полоса прокрутки.</summary>
     private const double Minimum = 160;

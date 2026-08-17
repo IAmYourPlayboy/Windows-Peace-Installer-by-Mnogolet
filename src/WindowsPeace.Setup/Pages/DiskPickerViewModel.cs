@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using WindowsPeace.Core.Diagnostics;
-using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Infrastructure;
 using WindowsPeace.Setup.Shell;
@@ -30,12 +29,17 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     private CancellationTokenSource? _cancellation;
 
     private DiskRowViewModel? _selected;
-    private string _planSummary = string.Empty;
     private string _statusText = string.Empty;
     private string? _denialReason;
     private string? _enumerationError;
     private bool _isBusy;
     private IReadOnlyList<DiskInfo> _disks = Array.Empty<DiskInfo>();
+
+    /// <summary>
+    /// Дети каждой строки-диска — разделы и незанятое место. Держим их отдельно,
+    /// чтобы сворачивать диск, убирая детей из списка и возвращая обратно.
+    /// </summary>
+    private readonly Dictionary<DiskRowViewModel, IReadOnlyList<DiskRowViewModel>> _children = new();
 
     public DiskPickerViewModel(IDiskEnumerator enumerator, IDiskContentInspector inspector, IFileSystemProbe probe)
     {
@@ -50,8 +54,6 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     public string Title => "Куда установить Windows?";
 
     public ObservableCollection<DiskRowViewModel> Rows { get; } = new();
-
-    public ObservableCollection<PlanWarning> Warnings { get; } = new();
 
     /// <summary>
     /// Все диски машины, как их вернул последний опрос. Нужны не только этому
@@ -73,12 +75,6 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
                 UpdateSelection();
             }
         }
-    }
-
-    public string PlanSummary
-    {
-        get => _planSummary;
-        private set => Set(ref _planSummary, value);
     }
 
     /// <summary>Чем занят опрос прямо сейчас. Пусто, когда опрос не идёт.</summary>
@@ -143,6 +139,37 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     public void Cancel() => _cancellation?.Cancel();
 
     /// <summary>
+    /// Свернуть или развернуть диск: убрать его разделы из списка или вернуть
+    /// их обратно. У строк без детей (раздел, незанятое место, пустой диск)
+    /// ничего не делает. Работает и для невыбираемого диска.
+    /// </summary>
+    public void Toggle(DiskRowViewModel row)
+    {
+        if (!row.CanToggle || !_children.TryGetValue(row, out var children))
+        {
+            return;
+        }
+
+        row.IsExpanded = !row.IsExpanded;
+
+        if (row.IsExpanded)
+        {
+            var at = Rows.IndexOf(row) + 1;
+            foreach (var child in children)
+            {
+                Rows.Insert(at++, child);
+            }
+        }
+        else
+        {
+            foreach (var child in children)
+            {
+                Rows.Remove(child);
+            }
+        }
+    }
+
+    /// <summary>
     /// Опрашивает диски и строит список. Тяжёлая часть выполняется в стороннем
     /// потоке, разбор результата — там же, где вызвали, поэтому коллекции
     /// меняются в потоке интерфейса.
@@ -160,7 +187,7 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 
         IsBusy = true;
         Rows.Clear();
-        Warnings.Clear();
+        _children.Clear();
         Selected = null;
         EnumerationError = null;
         StatusText = "Опрашиваю диски…";
@@ -225,40 +252,38 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     {
         foreach (var disk in _disks)
         {
-            Rows.Add(DiskRowViewModel.ForDisk(disk));
+            var diskRow = DiskRowViewModel.ForDisk(disk);
+            Rows.Add(diskRow);
+
+            var children = new List<DiskRowViewModel>();
 
             foreach (var partition in disk.Partitions)
             {
-                Rows.Add(DiskRowViewModel.ForPartition(disk, partition));
+                children.Add(DiskRowViewModel.ForPartition(disk, partition));
             }
 
             foreach (var gap in disk.FreeSpaces)
             {
-                Rows.Add(DiskRowViewModel.ForFreeSpace(disk, gap));
+                children.Add(DiskRowViewModel.ForFreeSpace(disk, gap));
+            }
+
+            _children[diskRow] = children;
+
+            // Развёрнут по умолчанию: все дети сразу в списке.
+            foreach (var child in children)
+            {
+                Rows.Add(child);
             }
         }
     }
 
     private void UpdateSelection()
     {
-        Warnings.Clear();
-        DenialReason = null;
-        PlanSummary = string.Empty;
-
-        if (Selected is not null)
-        {
-            DenialReason = Selected.Verdict.Reason;
-
-            if (Selected.IsSelectable)
-            {
-                PlanSummary = DeploymentPlanner.Build(Selected.Target).Summary;
-
-                foreach (var warning in SelectionRules.Warnings(Selected.Target, _disks))
-                {
-                    Warnings.Add(warning);
-                }
-            }
-        }
+        // Причина отказа - единственное, что осталось внизу: она контекстная,
+        // видна только когда выбрали то, куда нельзя, и объясняет почему
+        // (например «мало места»). Предупреждения и итог разметки убраны
+        // по приёмке 17.08.2026 - см. спеку за эту дату.
+        DenialReason = Selected?.Verdict.Reason;
 
         Raise(nameof(CanCreate));
         Raise(nameof(CanDelete));

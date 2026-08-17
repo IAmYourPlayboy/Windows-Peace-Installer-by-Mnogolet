@@ -26,11 +26,4 @@ public sealed class WizardChoice : IWizardChoice
     public SelectionTarget? Target => _disks.Selected?.Target;
 
     public IReadOnlyList<DiskInfo> Disks => _disks.Disks;
-
-    /// <summary>
-    /// Пока рецепт не разбирается, ответ здесь самый осторожный — требовать
-    /// всегда. На шаге В сюда придёт safety.requireTypedConfirmation из рецепта,
-    /// и поменяется только эта строка.
-    /// </summary>
-    public bool RequiresTypedConfirmation => true;
 }

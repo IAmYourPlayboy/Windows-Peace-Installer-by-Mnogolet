@@ -137,7 +137,7 @@ public static class OperationLogOpener
                     return new OpenedLog(result.Log, path, refusals);
                 }
 
-                refusals.Add(path + " — " + result.Refusal);
+                refusals.Add(path + " - " + result.Refusal);
             }
         }
 

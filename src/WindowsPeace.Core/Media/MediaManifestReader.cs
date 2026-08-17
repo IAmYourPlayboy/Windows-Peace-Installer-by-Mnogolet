@@ -66,7 +66,7 @@ public static class MediaManifestReader
     /// </summary>
     private const string Broken =
         "Опись носителя испорчена: прочитать её не получается. Установить с этого носителя " +
-        "ничего нельзя — его нужно записать заново.";
+        "ничего нельзя - его нужно записать заново.";
 
     public static MediaManifestResult Read(string json)
     {
@@ -102,7 +102,7 @@ public static class MediaManifestReader
                 return new MediaManifestResult(MediaManifestStatus.TooNew, null, string.Format(
                     CultureInfo.CurrentCulture,
                     "Носитель собран более новой версией Windows Peace: формат описи {0}, а эта программа " +
-                    "понимает {1}. Установить с него нельзя — нужен мастер посвежее.",
+                    "понимает {1}. Установить с него нельзя - нужен мастер посвежее.",
                     version, SupportedSchemaVersion));
             }
 

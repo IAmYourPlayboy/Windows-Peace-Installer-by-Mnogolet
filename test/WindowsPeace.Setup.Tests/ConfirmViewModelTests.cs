@@ -19,8 +19,6 @@ internal sealed class FakeChoice : IWizardChoice
     public SelectionTarget? Target { get; set; }
 
     public IReadOnlyList<DiskInfo> Disks { get; set; } = Array.Empty<DiskInfo>();
-
-    public bool RequiresTypedConfirmation { get; set; } = true;
 }
 
 public class ConfirmViewModelTests
@@ -53,15 +51,40 @@ public class ConfirmViewModelTests
 
         Assert.Equal("Atlas 25H2 RU", page.RecipeName);
         Assert.Equal(Model, page.DiskModel);
-        Assert.Contains("серийный номер Z9A1B2C3", page.DiskSummary, StringComparison.Ordinal);
+        Assert.Contains("Sata HDD", page.DiskSummary, StringComparison.Ordinal);
         Assert.Contains("EFI", page.PlanSummary, StringComparison.Ordinal);
         Assert.False(page.HasTrouble);
     }
 
     /// <summary>
+    /// Подтверждение вводом модели убрано по приёмке 17.08.2026: шаг Б ничего
+    /// на диск не пишет, настоящий барьер стирания — на шаге В. Значит, войдя
+    /// на экран с выбранным диском, дальше можно идти сразу.
+    /// </summary>
+    [Fact]
+    public void После_входа_дорога_открыта_без_всякого_ввода()
+    {
+        var page = Screen(WholeDisk());
+
+        Assert.True(page.CanGoNext);
+    }
+
+    /// <summary>
+    /// Серийный номер (длинная строка отпечатка) убран из сводки по той же
+    /// приёмке: человек сверяет диск по модели и объёму.
+    /// </summary>
+    [Fact]
+    public void Серийного_номера_в_сводке_нет()
+    {
+        var page = Screen(WholeDisk());
+
+        Assert.DoesNotContain("серийн", page.DiskSummary, StringComparison.Ordinal);
+        Assert.DoesNotContain("Z9A1B2C3", page.DiskSummary, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Разметка диска перечисляет будущие разделы, но не говорит главного —
-    /// что всё нынешнее содержимое исчезнет. На пустом диске предупреждений
-    /// не будет вовсе, и человек прочитает только столбик размеров.
+    /// что всё нынешнее содержимое исчезнет. Это сказано словом «безвозвратно».
     /// </summary>
     [Fact]
     public void Про_стирание_диска_сказано_прямо_а_не_столбиком_размеров()
@@ -82,96 +105,45 @@ public class ConfirmViewModelTests
         Assert.DoesNotContain("безвозвратно", Screen(choice).PlanEffect, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// «Остальные разделы не изменяются» раньше говорилось дважды: из PlanEffect
+    /// и из PlanSummary. При установке в раздел эту мысль несёт PlanSummary,
+    /// поэтому PlanEffect в этом случае молчит.
+    /// </summary>
     [Fact]
-    public void Пока_модель_не_введена_дальше_нельзя()
+    public void При_установке_в_раздел_нет_двойного_остальные_разделы()
     {
-        var page = Screen(WholeDisk());
-
-        Assert.True(page.NeedsTypedConfirmation);
-        Assert.False(page.CanGoNext);
-    }
-
-    [Fact]
-    public void Неверная_модель_не_открывает_дорогу()
-    {
-        var page = Screen(WholeDisk());
-
-        page.TypedModel = "ST1000";
-
-        Assert.False(page.CanGoNext);
-    }
-
-    [Fact]
-    public void Верная_модель_открывает_дорогу_невзирая_на_регистр_и_пробелы()
-    {
-        var page = Screen(WholeDisk());
-
-        page.TypedModel = "  st1000dm010-2ep102 ";
-
-        Assert.True(page.CanGoNext);
-    }
-
-    [Fact]
-    public void Ввод_сообщается_оболочке_чтобы_ожила_кнопка()
-    {
-        var page = Screen(WholeDisk());
-        var told = 0;
-        page.CanGoNextChanged += (_, _) => told++;
-
-        page.TypedModel = Model;
-
-        Assert.Equal(1, told);
-    }
-
-    [Fact]
-    public void Когда_подтверждение_не_требуется_поля_нет_и_дорога_открыта_сразу()
-    {
-        var choice = WholeDisk();
-        choice.RequiresTypedConfirmation = false;
-
-        var page = Screen(choice);
-
-        Assert.False(page.NeedsTypedConfirmation);
-        Assert.True(page.CanGoNext);
-    }
-
-    /// <summary>Предупреждения не сочиняются здесь заново, а берутся из правил ядра.</summary>
-    [Fact]
-    public void Предупреждения_показываются_все()
-    {
-        var disk = TestDisks.Disk(serial: null, probeError: "Разделы прочитать не удалось");
+        var disk = TestDisks.Disk(size: 500 * TestDisks.Gib);
         var page = Screen(new FakeChoice
         {
-            Target = SelectionTarget.ForWholeDisk(disk),
+            Target = SelectionTarget.ForFreeSpace(disk, disk.FreeSpaces[0]),
             Disks = new[] { disk },
         });
 
-        Assert.Contains(page.Warnings, w => w.Kind == WarningKind.PartitionsNotRead);
-        Assert.Contains(page.Warnings, w => w.Kind == WarningKind.WeakIdentity);
+        Assert.Equal(string.Empty, page.PlanEffect);
+        Assert.Contains("не изменяются", page.PlanSummary, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Человек сходил назад и вернулся. Подтверждение, данное до этого,
-    /// относилось к прежнему выбору и больше ничего не значит.
+    /// У диска может не читаться даже модель: устройство не отвечает на запрос
+    /// свойств. Раньше это был тупик — нечего было вписать. Теперь ввода нет,
+    /// и такой диск не мешает идти дальше: его опознаёт объём и шина.
     /// </summary>
     [Fact]
-    public void Возврат_на_экран_требует_подтвердить_заново()
+    public void Диск_без_читаемой_модели_всё_равно_пускает_дальше()
     {
-        var page = Screen(WholeDisk());
-        page.TypedModel = Model;
+        var page = Screen(WholeDisk(model: string.Empty));
+
         Assert.True(page.CanGoNext);
-
-        page.OnEnter();
-
-        Assert.Equal(string.Empty, page.TypedModel);
-        Assert.False(page.CanGoNext);
+        Assert.False(page.HasTrouble);
     }
 
     [Fact]
-    public void Смена_диска_меняет_сводку_и_ожидаемую_модель()
+    public void Смена_диска_меняет_сводку()
     {
         var choice = WholeDisk();
         var page = Screen(choice);
+        Assert.Equal(Model, page.DiskModel);
 
         var other = TestDisks.Disk(serial: "OTHER", size: 240 * TestDisks.Gib, model: "Samsung SSD 860");
         choice.Target = SelectionTarget.ForWholeDisk(other);
@@ -179,29 +151,6 @@ public class ConfirmViewModelTests
         page.OnEnter();
 
         Assert.Equal("Samsung SSD 860", page.DiskModel);
-
-        page.TypedModel = Model;
-        Assert.False(page.CanGoNext);
-
-        page.TypedModel = "Samsung SSD 860";
-        Assert.True(page.CanGoNext);
-    }
-
-    /// <summary>
-    /// У диска может не читаться даже модель: устройство не отвечает на запрос
-    /// свойств. Пустое поле совпало бы с пустой моделью, и подтверждение
-    /// превратилось бы в нажатие «Далее» — то есть в ничто.
-    /// </summary>
-    [Fact]
-    public void Диск_без_читаемой_модели_не_подтверждается_пустой_строкой()
-    {
-        var page = Screen(WholeDisk(model: string.Empty));
-
-        Assert.False(page.CanGoNext);
-        Assert.True(page.HasTrouble);
-
-        page.TypedModel = string.Empty;
-        Assert.False(page.CanGoNext);
     }
 
     /// <summary>
@@ -231,8 +180,7 @@ public class ConfirmViewModelTests
 
     /// <summary>
     /// Экран, на который ещё не входили, ничего не показывает — и разрешать
-    /// ему нечего. Иначе пустое поле совпало бы с пустой моделью и подтверждение
-    /// оказалось бы данным на экране, которого никто не видел.
+    /// ему нечего.
     /// </summary>
     [Fact]
     public void Пока_на_экран_не_вошли_дальше_нельзя()

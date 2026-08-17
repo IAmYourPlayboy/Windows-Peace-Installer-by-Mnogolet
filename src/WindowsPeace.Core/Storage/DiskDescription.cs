@@ -23,9 +23,15 @@ public static class DiskDescription
         return media.Length == 0 ? bus : bus + " " + media;
     }
 
-    /// <summary>Объём, шина и опознавательный признак одной строкой.</summary>
+    /// <summary>
+    /// Объём и шина одной строкой: «500 ГБ · Sata HDD».
+    ///
+    /// Серийный номер (отпечаток диска) убран по приёмке 17.08.2026: длинная
+    /// строка на экране мешала, а сверяет диск человек по модели и объёму.
+    /// Отпечаток остаётся в данных диска и в журнале.
+    /// </summary>
     public static string Summary(DiskInfo disk)
-        => ByteSize.Format(disk.Identity.SizeBytes) + Separator + Bus(disk) + Separator + Identification(disk);
+        => ByteSize.Format(disk.Identity.SizeBytes) + Separator + Bus(disk);
 
     private static string Media(MediaKind media) => media switch
     {
@@ -33,18 +39,5 @@ public static class DiskDescription
         MediaKind.Hdd => "HDD",
         MediaKind.Scm => "SCM",
         _ => string.Empty,
-    };
-
-    /// <summary>
-    /// Чем диск опознан. Признак из разметки за серийный номер не выдаётся:
-    /// он меняется при переразметке, а человек по этой строке сверяет наклейку
-    /// на корпусе. Назвать его серийным номером — значит соврать в том самом
-    /// месте, где человек проверяет, тот ли это диск.
-    /// </summary>
-    private static string Identification(DiskInfo disk) => disk.Identity.Confidence switch
-    {
-        IdentityConfidence.Hardware => "серийный номер " + disk.Identity.SerialNumber,
-        IdentityConfidence.Volatile => "серийного номера нет, диск опознан по разметке",
-        _ => "серийный номер не читается",
     };
 }
