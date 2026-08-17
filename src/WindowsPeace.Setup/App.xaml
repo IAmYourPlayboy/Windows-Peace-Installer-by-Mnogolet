@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:pages="clr-namespace:WindowsPeace.Setup.Pages"
              xmlns:infrastructure="clr-namespace:WindowsPeace.Setup.Infrastructure"
-             xmlns:selection="clr-namespace:WindowsPeace.Core.Selection;assembly=WindowsPeace.Core">
+             xmlns:selection="clr-namespace:WindowsPeace.Core.Selection;assembly=WindowsPeace.Core"
+             xmlns:loc="clr-namespace:WindowsPeace.Setup.Localization">
     <Application.Resources>
         <!--
             Преобразователи общие на всё приложение: одинаковых сущностей
