@@ -11,6 +11,7 @@ using WindowsPeace.Core.Storage;
 using WindowsPeace.Core.Storage.Native;
 using WindowsPeace.Setup.Pages;
 using WindowsPeace.Setup.Shell;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup;
 
@@ -247,10 +248,8 @@ public partial class App : Application
         Checkpoint("Показываю объяснение", null);
 
         MessageBox.Show(
-            "Windows Peace не смог продолжить работу и сейчас закроется." + Environment.NewLine +
-            Environment.NewLine +
-            "Разбираться с этим нам, а не вам: что случилось, записано в журнал работы.",
-            "Windows Peace",
+            CoreLocalization.Localization.Current[CoreLocalization.Keys.Error.Body],
+            CoreLocalization.Localization.Current[CoreLocalization.Keys.Error.Title],
             MessageBoxButton.OK,
             MessageBoxImage.Error);
 

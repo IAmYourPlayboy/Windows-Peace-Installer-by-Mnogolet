@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace WindowsPeace.Core.Localization;
@@ -49,5 +50,10 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Done.Explanation] =
             "Здесь будет итог установки и кнопка перезагрузки. " +
             "Это появится на следующем шаге работы над программой.",
+
+        [Keys.Error.Title] = "Windows Peace",
+        [Keys.Error.Body] =
+            "Windows Peace не смог продолжить работу и сейчас закроется." + Environment.NewLine + Environment.NewLine +
+            "Разбираться с этим нам, а не вам: что случилось, записано в журнал работы.",
     };
 }

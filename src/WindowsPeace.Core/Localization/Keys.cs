@@ -48,4 +48,10 @@ public static class Keys
         public const string Title = "done.title";
         public const string Explanation = "done.explanation";
     }
+
+    public static class Error
+    {
+        public const string Title = "error.title";
+        public const string Body = "error.body";
+    }
 }

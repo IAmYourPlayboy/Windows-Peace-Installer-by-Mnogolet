@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace WindowsPeace.Core.Localization;
@@ -49,5 +50,10 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Done.Explanation] =
             "This will show the installation result and a restart button. " +
             "It arrives in the next step of the program's development.",
+
+        [Keys.Error.Title] = "Windows Peace",
+        [Keys.Error.Body] =
+            "Windows Peace could not continue and will now close." + Environment.NewLine + Environment.NewLine +
+            "This is ours to sort out, not yours: what happened is recorded in the work log.",
     };
 }
