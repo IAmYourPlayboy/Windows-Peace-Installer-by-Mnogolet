@@ -9,5 +9,6 @@ public sealed class EnglishStrings : ILanguagePack
     public IReadOnlyDictionary<string, string> Strings { get; } = new Dictionary<string, string>
     {
         [Keys.Common.Next] = "Next",
+        [Keys.Language.Title] = "Select language",
     };
 }

@@ -9,5 +9,6 @@ public sealed class RussianStrings : ILanguagePack
     public IReadOnlyDictionary<string, string> Strings { get; } = new Dictionary<string, string>
     {
         [Keys.Common.Next] = "Далее",
+        [Keys.Language.Title] = "Выберите язык",
     };
 }
