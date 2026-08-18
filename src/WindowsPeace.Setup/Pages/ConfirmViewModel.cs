@@ -3,6 +3,7 @@ using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Infrastructure;
 using WindowsPeace.Setup.Shell;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -25,8 +26,17 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
     private string _diskModel = string.Empty;
     private string _diskSummary = string.Empty;
     private string _planSummary = string.Empty;
-    private string _planEffect = string.Empty;
-    private string _trouble = string.Empty;
+
+    /// <summary>
+    /// Будет ли стёрт весь диск. Состояние, а не готовая строка: сводка
+    /// собирается один раз при входе на экран (<see cref="OnEnter"/>), а язык
+    /// можно сменить и после — тогда <see cref="PlanEffect"/> обязан заговорить
+    /// на новом языке, а не остаться в том, что был при сборке.
+    /// </summary>
+    private bool _wipesWholeDisk;
+
+    /// <summary>Выбор потерялся: ни рецепта, ни диска нет. См. <see cref="_wipesWholeDisk"/>.</summary>
+    private bool _lostChoice;
 
     /// <summary>
     /// Собрана ли сводка. До входа на экран показывать нечего, и пускать дальше
@@ -39,13 +49,13 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
         _choice = choice;
     }
 
-    public string Title => "Проверьте и подтвердите";
+    public string Title => CoreLocalization.Localization.Current[CoreLocalization.Keys.Confirm.Title];
 
     /// <summary>
     /// После этого экрана начинается работа с диском. Кнопка обязана называть
     /// действие своим словом: «Далее» здесь значило бы «сотрите мой диск».
     /// </summary>
-    public string NextTitle => "Установить";
+    public string NextTitle => CoreLocalization.Localization.Current[CoreLocalization.Keys.Confirm.Install];
 
     /// <summary>Что ставим.</summary>
     public string RecipeName
@@ -79,38 +89,22 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
     /// Что случится с тем, что на диске есть сейчас. Пусто при установке в раздел:
     /// там эту мысль несёт сам PlanSummary, и повторять её дважды незачем.
     /// </summary>
-    public string PlanEffect
-    {
-        get => _planEffect;
-        private set
-        {
-            if (Set(ref _planEffect, value))
-            {
-                Raise(nameof(HasPlanEffect));
-            }
-        }
-    }
+    public string PlanEffect => _wipesWholeDisk
+        ? CoreLocalization.Localization.Current[CoreLocalization.Keys.Confirm.Wipe]
+        : string.Empty;
 
     /// <summary>Есть ли что сказать про судьбу нынешнего содержимого диска.</summary>
-    public bool HasPlanEffect => !string.IsNullOrEmpty(_planEffect);
+    public bool HasPlanEffect => !string.IsNullOrEmpty(PlanEffect);
 
     /// <summary>
     /// Пусто, когда всё в порядке. Иначе — объяснение для человека, и только оно:
     /// техническая причина живёт в журнале.
     /// </summary>
-    public string Trouble
-    {
-        get => _trouble;
-        private set
-        {
-            if (Set(ref _trouble, value))
-            {
-                Raise(nameof(HasTrouble));
-            }
-        }
-    }
+    public string Trouble => _lostChoice
+        ? CoreLocalization.Localization.Current[CoreLocalization.Keys.Confirm.LostChoice]
+        : string.Empty;
 
-    public bool HasTrouble => !string.IsNullOrEmpty(_trouble);
+    public bool HasTrouble => !string.IsNullOrEmpty(Trouble);
 
     /// <summary>
     /// Войдя на экран с выбранным рецептом и диском, дальше можно идти сразу:
@@ -124,6 +118,10 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
     {
         Describe();
 
+        Raise(nameof(PlanEffect));
+        Raise(nameof(HasPlanEffect));
+        Raise(nameof(Trouble));
+        Raise(nameof(HasTrouble));
         Raise(nameof(CanGoNext));
         CanGoNextChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -139,7 +137,7 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
             // дальше без выбора. Но дальше по пути форматирование диска,
             // и показывать пустую сводку молча нельзя.
             Forget();
-            Trouble = "Выбор потерялся: вернитесь назад и укажите, что ставим и куда.";
+            _lostChoice = true;
             return;
         }
 
@@ -150,10 +148,8 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
         DiskModel = target.Disk.Identity.Model.Trim();
         DiskSummary = DiskDescription.Summary(target.Disk);
         PlanSummary = plan.Summary;
-        PlanEffect = plan.WipesWholeDisk
-            ? "Диск будет размечен заново. Всё, что на нём сейчас есть, исчезнет безвозвратно."
-            : string.Empty;
-        Trouble = string.Empty;
+        _wipesWholeDisk = plan.WipesWholeDisk;
+        _lostChoice = false;
     }
 
     /// <summary>Забыть сводку целиком: показывать половину — хуже, чем ничего.</summary>
@@ -164,6 +160,6 @@ public sealed class ConfirmViewModel : ViewModelBase, IWizardPage
         DiskModel = string.Empty;
         DiskSummary = string.Empty;
         PlanSummary = string.Empty;
-        PlanEffect = string.Empty;
+        _wipesWholeDisk = false;
     }
 }

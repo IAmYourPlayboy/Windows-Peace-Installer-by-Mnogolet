@@ -24,6 +24,7 @@ internal sealed class FakeChoice : IWizardChoice
     public CoreLocalization.Language SystemLanguage => CoreLocalization.Language.Russian;
 }
 
+[Collection(LocalizationCollection.Name)]
 public class ConfirmViewModelTests
 {
     private const string Model = "ST1000DM010-2EP102";
@@ -191,5 +192,76 @@ public class ConfirmViewModelTests
         var page = new ConfirmViewModel(WholeDisk());
 
         Assert.False(page.CanGoNext);
+    }
+
+    /// <summary>
+    /// Заголовок и слово на кнопке читаются ключами и обязаны говорить
+    /// на выбранном языке, а не застывать на языке по умолчанию.
+    /// </summary>
+    [Fact]
+    public void Заголовок_и_кнопка_меняются_с_языком()
+    {
+        var loc = CoreLocalization.Localization.Current;
+        try
+        {
+            var page = Screen(WholeDisk());
+
+            loc.Language = CoreLocalization.Language.Russian;
+            Assert.Equal("Проверьте и подтвердите", page.Title);
+            Assert.Equal("Установить", page.NextTitle);
+
+            loc.Language = CoreLocalization.Language.English;
+            Assert.Equal("Review and confirm", page.Title);
+            Assert.Equal("Install", page.NextTitle);
+        }
+        finally
+        {
+            loc.Language = CoreLocalization.Language.Russian;
+        }
+    }
+
+    /// <summary>
+    /// PlanEffect и Trouble хранят состояние (стирание диска, потерянный
+    /// выбор), а не готовую строку: сводка собирается один раз при входе,
+    /// но язык можно сменить и после, и текст обязан заговорить по-новому.
+    /// </summary>
+    [Fact]
+    public void Предупреждение_о_стирании_говорит_на_выбранном_языке()
+    {
+        var loc = CoreLocalization.Localization.Current;
+        try
+        {
+            var page = Screen(WholeDisk());
+
+            loc.Language = CoreLocalization.Language.Russian;
+            Assert.Contains("безвозвратно", page.PlanEffect, StringComparison.Ordinal);
+
+            loc.Language = CoreLocalization.Language.English;
+            Assert.Contains("permanently", page.PlanEffect, StringComparison.Ordinal);
+        }
+        finally
+        {
+            loc.Language = CoreLocalization.Language.Russian;
+        }
+    }
+
+    [Fact]
+    public void Потерянный_выбор_говорит_на_выбранном_языке()
+    {
+        var loc = CoreLocalization.Localization.Current;
+        try
+        {
+            var page = Screen(new FakeChoice());
+
+            loc.Language = CoreLocalization.Language.Russian;
+            Assert.Equal("Выбор потерялся: вернитесь назад и укажите, что ставим и куда.", page.Trouble);
+
+            loc.Language = CoreLocalization.Language.English;
+            Assert.Equal("The selection was lost: go back and choose what to install and where.", page.Trouble);
+        }
+        finally
+        {
+            loc.Language = CoreLocalization.Language.Russian;
+        }
     }
 }

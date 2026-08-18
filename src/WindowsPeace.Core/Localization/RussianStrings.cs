@@ -28,5 +28,15 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Recipe.TroubleTooNew] =
             "Носитель собран более новой версией Windows Peace. Установить с него нельзя - нужен мастер посвежее.",
         [Keys.Recipe.TroubleNoRecipes] = "На носителе нет ни одного рецепта: ставить с него нечего.",
+
+        [Keys.Confirm.Title] = "Проверьте и подтвердите",
+        [Keys.Confirm.Install] = "Установить",
+        [Keys.Confirm.WhatLabel] = "Что ставим",
+        [Keys.Confirm.WhereLabel] = "Куда ставим",
+        [Keys.Confirm.EffectLabel] = "Что будет сделано",
+        [Keys.Confirm.Wipe] =
+            "Диск будет размечен заново. Всё, что на нём сейчас есть, исчезнет безвозвратно.",
+        [Keys.Confirm.LostChoice] =
+            "Выбор потерялся: вернитесь назад и укажите, что ставим и куда.",
     };
 }

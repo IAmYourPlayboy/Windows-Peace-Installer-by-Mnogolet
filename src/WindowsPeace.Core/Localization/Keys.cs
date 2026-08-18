@@ -25,4 +25,15 @@ public static class Keys
         public const string TroubleTooNew = "recipe.trouble.tooNew";
         public const string TroubleNoRecipes = "recipe.trouble.noRecipes";
     }
+
+    public static class Confirm
+    {
+        public const string Title = "confirm.title";
+        public const string Install = "confirm.install";
+        public const string WhatLabel = "confirm.whatLabel";
+        public const string WhereLabel = "confirm.whereLabel";
+        public const string EffectLabel = "confirm.effectLabel";
+        public const string Wipe = "confirm.wipe";
+        public const string LostChoice = "confirm.lostChoice";
+    }
 }

@@ -28,5 +28,15 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Recipe.TroubleTooNew] =
             "This media was built by a newer version of Windows Peace. It cannot be used - a newer wizard is required.",
         [Keys.Recipe.TroubleNoRecipes] = "The media has no recipes: nothing to install.",
+
+        [Keys.Confirm.Title] = "Review and confirm",
+        [Keys.Confirm.Install] = "Install",
+        [Keys.Confirm.WhatLabel] = "What we install",
+        [Keys.Confirm.WhereLabel] = "Where we install",
+        [Keys.Confirm.EffectLabel] = "What will happen",
+        [Keys.Confirm.Wipe] =
+            "The disk will be repartitioned. Everything on it will be lost permanently.",
+        [Keys.Confirm.LostChoice] =
+            "The selection was lost: go back and choose what to install and where.",
     };
 }
