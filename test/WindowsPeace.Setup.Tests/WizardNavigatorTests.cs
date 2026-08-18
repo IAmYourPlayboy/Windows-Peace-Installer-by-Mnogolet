@@ -121,4 +121,45 @@ public class WizardNavigatorTests
     {
         Assert.Throws<ArgumentException>(() => new WizardNavigator(new List<IWizardPage>()));
     }
+
+    [Fact]
+    public void О_входе_на_первую_страницу_сообщается_сразу()
+    {
+        var entered = new List<string>();
+        var first = new FakePage("Что ставим");
+        _ = new WizardNavigator(new List<IWizardPage> { first, new FakePage("Куда") },
+            page => entered.Add(page.Title));
+
+        Assert.Equal(new[] { "Что ставим" }, entered);
+    }
+
+    [Fact]
+    public void О_входе_на_каждую_страницу_сообщается_при_переходах()
+    {
+        var entered = new List<string>();
+        var navigator = new WizardNavigator(
+            new List<IWizardPage> { new FakePage("Что ставим"), new FakePage("Куда"), new FakePage("Проверьте") },
+            page => entered.Add(page.Title));
+
+        navigator.GoNext();
+        navigator.GoNext();
+        navigator.GoBack();
+
+        Assert.Equal(new[] { "Что ставим", "Куда", "Проверьте", "Куда" }, entered);
+    }
+
+    [Fact]
+    public void Холостой_переход_о_входе_не_сообщает()
+    {
+        var entered = new List<string>();
+        var navigator = new WizardNavigator(
+            new List<IWizardPage> { new FakePage("Одна") },
+            page => entered.Add(page.Title));
+
+        navigator.GoBack();
+        navigator.GoNext();
+
+        // Только вход на первую страницу при создании: уходить некуда.
+        Assert.Equal(new[] { "Одна" }, entered);
+    }
 }

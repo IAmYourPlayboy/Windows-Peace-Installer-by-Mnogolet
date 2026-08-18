@@ -52,6 +52,27 @@ public class JsonLinesOperationLogTests : IDisposable
         Assert.Equal(1234, json.RootElement.GetProperty("durationMs").GetInt64());
     }
 
+    /// <summary>
+    /// Мастер ставит человеку систему, а журнал только рассказывает, как идут
+    /// дела. Отказ записи не имеет права уронить установку: носитель могут
+    /// вынуть на середине, а фоновая задача — дописать что-то уже после того,
+    /// как журнал закрыли на выходе.
+    /// </summary>
+    [Fact]
+    public void Запись_в_закрытый_журнал_не_роняет_программу()
+    {
+        var log = new JsonLinesOperationLog(LogPath);
+        log.Write(Record());
+        log.Dispose();
+
+        log.Write(Record(operation: "Запись после закрытия"));
+        log.Write(Record(operation: "И ещё одна"));
+
+        // То, что успело дойти до отказа, остаётся на носителе: по этим записям
+        // и видно, до какого места всё шло хорошо.
+        Assert.Single(File.ReadAllLines(LogPath));
+    }
+
     [Fact]
     public void Причина_пишется_только_когда_она_есть()
     {
@@ -119,6 +140,23 @@ public class JsonLinesOperationLogTests : IDisposable
         Assert.Equal(2, lines.Length);
         Assert.Contains("первый запуск", lines[0], StringComparison.Ordinal);
         Assert.Contains("второй запуск", lines[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Запись_видна_сразу_а_не_после_закрытия()
+    {
+        using var log = new JsonLinesOperationLog(LogPath);
+        log.Write(Record(operation: "успела записаться"));
+
+        // Журнал намеренно читается, пока он ещё открыт. Всё, что осталось
+        // в буфере, при обесточивании машины пропадает, — а журнал нужен
+        // именно после таких случаев. Проверить, что запись дошла до самого
+        // носителя, а не до кэша Windows, тестом нельзя: это делается опытом
+        // в WinPE. Здесь проверяется хотя бы то, что она вышла из программы.
+        using var stream = new FileStream(LogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+
+        Assert.Contains("успела записаться", reader.ReadToEnd(), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,4 +1,6 @@
-﻿namespace WindowsPeace.Core.Storage;
+﻿using CoreLocalization = WindowsPeace.Core.Localization;
+
+namespace WindowsPeace.Core.Storage;
 
 /// <summary>Что найдено на разделе. Заполняется отдельным проходом.</summary>
 public sealed class PartitionContent
@@ -42,7 +44,8 @@ public sealed class PartitionInfo
         IsSystem = isSystem;
         IsHidden = isHidden;
         Volume = volume;
-        Content = PartitionContent.NotInspected("Содержимое ещё не проверялось");
+        Content = PartitionContent.NotInspected(
+            CoreLocalization.Localization.Current[CoreLocalization.Keys.Content.NotInspected.Pending]);
     }
 
     public int Number { get; }

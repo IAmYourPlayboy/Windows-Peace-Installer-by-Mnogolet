@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using WindowsPeace.Core.Storage;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Selection;
 
@@ -9,7 +9,6 @@ namespace WindowsPeace.Core.Selection;
 public static class DeploymentPlanner
 {
     private const ulong Mib = 1024UL * 1024UL;
-    private const ulong Gib = 1024UL * Mib;
 
     public static DeploymentPlan Build(SelectionTarget target)
         => target.Kind == TargetKind.WholeDisk
@@ -30,7 +29,8 @@ public static class DeploymentPlanner
             new(PartitionKind.EfiSystem, "EFI", esp),
             new(PartitionKind.MicrosoftReserved, "MSR", msr),
             new(PartitionKind.BasicData, "Windows", windows),
-            new(PartitionKind.WindowsRecovery, "Восстановление", recovery),
+            new(PartitionKind.WindowsRecovery,
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Plan.Recovery], recovery),
         };
 
         return new DeploymentPlan(steps, wipesWholeDisk: true, summary: Summarize(steps));
@@ -44,14 +44,10 @@ public static class DeploymentPlanner
         };
 
         return new DeploymentPlan(steps, wipesWholeDisk: false,
-            summary: "Windows " + Format(target.AvailableBytes) + ". Остальные разделы не изменяются.");
+            summary: "Windows " + ByteSize.Format(target.AvailableBytes) +
+                     CoreLocalization.Localization.Current[CoreLocalization.Keys.Plan.SingleTail]);
     }
 
     private static string Summarize(IEnumerable<PlanStep> steps)
-        => string.Join(" · ", steps.Select(s => s.Title + " " + Format(s.SizeBytes)));
-
-    private static string Format(ulong bytes)
-        => bytes >= Gib
-            ? ((double)bytes / Gib).ToString("0.#", CultureInfo.CurrentCulture) + " ГБ"
-            : (bytes / Mib).ToString(CultureInfo.CurrentCulture) + " МБ";
+        => string.Join(" · ", steps.Select(s => s.Title + " " + ByteSize.Format(s.SizeBytes)));
 }

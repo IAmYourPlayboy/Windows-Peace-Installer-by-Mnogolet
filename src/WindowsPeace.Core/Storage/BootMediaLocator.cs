@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using WindowsPeace.Core.Media;
 
 namespace WindowsPeace.Core.Storage;
 
@@ -11,8 +12,8 @@ namespace WindowsPeace.Core.Storage;
 /// </summary>
 public static class BootMediaLocator
 {
-    /// <summary>Имя описи. То же значение используется Studio при записи носителя.</summary>
-    public const string ManifestFileName = "windows-peace-media.json";
+    /// <summary>Имя описи. Живёт в раскладке носителя, здесь только ссылка на неё.</summary>
+    public const string ManifestFileName = MediaLayout.ManifestFileName;
 
     public static void Mark(IReadOnlyList<DiskInfo> disks, IFileSystemProbe probe)
     {
@@ -35,5 +36,44 @@ public static class BootMediaLocator
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Первый найденный носитель, либо ничего. Пометку дисков не трогает:
+    /// пометить их надо все, а работаем мы с одним.
+    /// </summary>
+    public static MediaLocation? Find(IReadOnlyList<DiskInfo> disks, IFileSystemProbe probe)
+    {
+        var roots = new List<string>();
+        foreach (var disk in disks)
+        {
+            foreach (var partition in disk.Partitions)
+            {
+                if (partition.DriveLetter is not null)
+                {
+                    roots.Add(string.Format(CultureInfo.InvariantCulture, "{0}:\\", partition.DriveLetter.Value));
+                }
+            }
+        }
+
+        return FindAmong(roots, probe);
+    }
+
+    /// <summary>
+    /// То же самое, но по готовому списку корней. Нужно на старте: список
+    /// томов известен сразу, а перечисление дисков идёт своим чередом
+    /// и ждать его ради описи незачем.
+    /// </summary>
+    public static MediaLocation? FindAmong(IReadOnlyList<string> volumeRoots, IFileSystemProbe probe)
+    {
+        foreach (var root in volumeRoots)
+        {
+            if (probe.FileExists(Path.Combine(root, ManifestFileName)))
+            {
+                return new MediaLocation(root);
+            }
+        }
+
+        return null;
     }
 }

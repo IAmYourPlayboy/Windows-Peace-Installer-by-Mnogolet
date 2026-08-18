@@ -1,4 +1,5 @@
 ﻿using System;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Shell;
 
@@ -10,8 +11,23 @@ public interface IWizardPage
 {
     string Title { get; }
 
+    /// <summary>
+    /// Что написано на кнопке перехода вперёд. По умолчанию «Далее» — оно
+    /// подходит большинству экранов и потому не повторяется в каждом. Экран,
+    /// после которого начинается работа с диском, называет кнопку своим словом:
+    /// человек должен понимать, что произойдёт по нажатию.
+    /// </summary>
+    string NextTitle => CoreLocalization.Localization.Current[CoreLocalization.Keys.Common.Next];
+
     /// <summary>Можно ли уходить со страницы вперёд.</summary>
     bool CanGoNext { get; }
+
+    /// <summary>
+    /// Можно ли вернуться с этой страницы назад. По умолчанию да; страницы,
+    /// после которых работа уже началась, отвечают «нет» — возвращаться
+    /// оттуда некуда, и предлагать это значило бы врать.
+    /// </summary>
+    bool CanGoBack => true;
 
     event EventHandler CanGoNextChanged;
 

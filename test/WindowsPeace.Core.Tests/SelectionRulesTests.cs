@@ -1,9 +1,11 @@
 ﻿using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Tests;
 
+[Collection(LocalizationCollection.Name)]
 public class SelectionRulesTests
 {
     [Fact]
@@ -145,5 +147,33 @@ public class SelectionRulesTests
         var warnings = SelectionRules.Warnings(SelectionTarget.ForWholeDisk(disk), new[] { disk });
 
         Assert.Single(warnings, w => w.Kind == WarningKind.WindowsOnTarget);
+    }
+
+    [Fact]
+    public void Отказы_и_предупреждения_переводятся_на_английский()
+    {
+        CoreLocalization.Localization.Current.Language = CoreLocalization.Language.English;
+        try
+        {
+            var mediaVerdict = SelectionRules.Evaluate(SelectionTarget.ForWholeDisk(TestDisks.Disk(isMedia: true)));
+            Assert.Contains("boot media", mediaVerdict.Reason!, System.StringComparison.OrdinalIgnoreCase);
+
+            var partition = TestDisks.Partition(size: 30 * TestDisks.Gib);
+            var disk = TestDisks.Disk(partitions: new[] { partition });
+            var sizeVerdict = SelectionRules.Evaluate(SelectionTarget.ForPartition(disk, partition));
+            Assert.Contains("Not enough space", sizeVerdict.Reason!, System.StringComparison.Ordinal);
+            Assert.Contains("10", sizeVerdict.Reason!);
+
+            var windowsPartition = TestDisks.Partition();
+            TestDisks.SetContent(windowsPartition, windows: true);
+            var windowsDisk = TestDisks.Disk(partitions: new[] { windowsPartition });
+            var warnings = SelectionRules.Warnings(SelectionTarget.ForWholeDisk(windowsDisk), new[] { windowsDisk });
+            Assert.Contains(warnings, w => w.Kind == WarningKind.WindowsOnTarget
+                && w.Text.Contains("permanently"));
+        }
+        finally
+        {
+            CoreLocalization.Localization.Current.Language = CoreLocalization.Language.Russian;
+        }
     }
 }

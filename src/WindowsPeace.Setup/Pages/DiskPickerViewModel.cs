@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using WindowsPeace.Core.Diagnostics;
-using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Infrastructure;
 using WindowsPeace.Setup.Shell;
+using CoreLocalization = WindowsPeace.Core.Localization;
+using Language = WindowsPeace.Core.Localization.Language;
+using Keys = WindowsPeace.Core.Localization.Keys;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -30,12 +33,24 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     private CancellationTokenSource? _cancellation;
 
     private DiskRowViewModel? _selected;
-    private string _planSummary = string.Empty;
     private string _statusText = string.Empty;
     private string? _denialReason;
     private string? _enumerationError;
     private bool _isBusy;
     private IReadOnlyList<DiskInfo> _disks = Array.Empty<DiskInfo>();
+
+    /// <summary>
+    /// Язык, на котором собран текущий список строк. Строки-диски читают
+    /// <c>Localization</c> в момент сборки (<see cref="BuildRows"/>) и застывают
+    /// на этом языке; смену подхватывает только <see cref="OnEnter"/>.
+    /// </summary>
+    private Language _builtLanguage = CoreLocalization.Localization.Current.Language;
+
+    /// <summary>
+    /// Дети каждой строки-диска — разделы и незанятое место. Держим их отдельно,
+    /// чтобы сворачивать диск, убирая детей из списка и возвращая обратно.
+    /// </summary>
+    private readonly Dictionary<DiskRowViewModel, IReadOnlyList<DiskRowViewModel>> _children = new();
 
     public DiskPickerViewModel(IDiskEnumerator enumerator, IDiskContentInspector inspector, IFileSystemProbe probe)
     {
@@ -47,11 +62,15 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
         CancelCommand = new RelayCommand(Cancel, () => IsBusy);
     }
 
-    public string Title => "Куда установить Windows?";
+    public string Title => CoreLocalization.Localization.Current[Keys.Disk.Title];
 
     public ObservableCollection<DiskRowViewModel> Rows { get; } = new();
 
-    public ObservableCollection<PlanWarning> Warnings { get; } = new();
+    /// <summary>
+    /// Все диски машины, как их вернул последний опрос. Нужны не только этому
+    /// экрану: по ним правила выбора смотрят, не стоит ли Windows на соседнем.
+    /// </summary>
+    public IReadOnlyList<DiskInfo> Disks => _disks;
 
     public RelayCommand RefreshCommand { get; }
 
@@ -67,12 +86,6 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
                 UpdateSelection();
             }
         }
-    }
-
-    public string PlanSummary
-    {
-        get => _planSummary;
-        private set => Set(ref _planSummary, value);
     }
 
     /// <summary>Чем занят опрос прямо сейчас. Пусто, когда опрос не идёт.</summary>
@@ -124,6 +137,19 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 
     public void OnEnter()
     {
+        // Строки-диски застыли на языке сборки (BuildRows читает Localization
+        // один раз). Если язык сменился, пока экрана не было видно, — список
+        // не может просто перещёлкнуть текст, как обычные свойства: его нужно
+        // собрать заново.
+        if (CoreLocalization.Localization.Current.Language != _builtLanguage && !IsBusy)
+        {
+            _builtLanguage = CoreLocalization.Localization.Current.Language;
+            // Намеренно без ожидания: вход на страницу не должен блокировать
+            // оболочку. RefreshAsync не выпускает исключений наружу.
+            _ = RefreshAsync();
+            return;
+        }
+
         if (Rows.Count == 0 && EnumerationError is null && !IsBusy)
         {
             // Намеренно без ожидания: вход на страницу не должен блокировать
@@ -135,6 +161,37 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 
     /// <summary>Прекращает идущий опрос. Безопасно вызывать, когда опроса нет.</summary>
     public void Cancel() => _cancellation?.Cancel();
+
+    /// <summary>
+    /// Свернуть или развернуть диск: убрать его разделы из списка или вернуть
+    /// их обратно. У строк без детей (раздел, незанятое место, пустой диск)
+    /// ничего не делает. Работает и для невыбираемого диска.
+    /// </summary>
+    public void Toggle(DiskRowViewModel row)
+    {
+        if (!row.CanToggle || !_children.TryGetValue(row, out var children))
+        {
+            return;
+        }
+
+        row.IsExpanded = !row.IsExpanded;
+
+        if (row.IsExpanded)
+        {
+            var at = Rows.IndexOf(row) + 1;
+            foreach (var child in children)
+            {
+                Rows.Insert(at++, child);
+            }
+        }
+        else
+        {
+            foreach (var child in children)
+            {
+                Rows.Remove(child);
+            }
+        }
+    }
 
     /// <summary>
     /// Опрашивает диски и строит список. Тяжёлая часть выполняется в стороннем
@@ -154,10 +211,10 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 
         IsBusy = true;
         Rows.Clear();
-        Warnings.Clear();
+        _children.Clear();
         Selected = null;
         EnumerationError = null;
-        StatusText = "Опрашиваю диски…";
+        StatusText = CoreLocalization.Localization.Current[Keys.Disk.StatusEnumerating];
 
         var progress = new Progress<string>(text => StatusText = text);
 
@@ -169,11 +226,14 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
             _disks = snapshot.Disks;
 
             BuildRows();
+            // Список только что собран на текущем языке — запоминаем его,
+            // чтобы OnEnter не перестраивал список зря при следующем входе.
+            _builtLanguage = CoreLocalization.Localization.Current.Language;
         }
         catch (OperationCanceledException)
         {
             _disks = Array.Empty<DiskInfo>();
-            EnumerationError = "Опрос дисков прерван. Нажмите «Обновить», чтобы попробовать снова.";
+            EnumerationError = CoreLocalization.Localization.Current[Keys.Disk.ErrorCancelled];
         }
         finally
         {
@@ -201,12 +261,15 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
             token.ThrowIfCancellationRequested();
 
             index++;
-            progress.Report($"Смотрю, что лежит на диске {index} из {snapshot.Disks.Count}…");
+            progress.Report(string.Format(
+                CultureInfo.CurrentCulture,
+                CoreLocalization.Localization.Current[Keys.Disk.StatusInspecting],
+                index, snapshot.Disks.Count));
             _inspector.Inspect(disk, token);
         }
 
         token.ThrowIfCancellationRequested();
-        progress.Report("Ищу загрузочный носитель…");
+        progress.Report(CoreLocalization.Localization.Current[Keys.Disk.StatusLocating]);
 
         // Отметка носителя ставится до построения строк: от неё зависит вердикт,
         // а вердикт вычисляется в конструкторе строки.
@@ -219,40 +282,38 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     {
         foreach (var disk in _disks)
         {
-            Rows.Add(DiskRowViewModel.ForDisk(disk));
+            var diskRow = DiskRowViewModel.ForDisk(disk);
+            Rows.Add(diskRow);
+
+            var children = new List<DiskRowViewModel>();
 
             foreach (var partition in disk.Partitions)
             {
-                Rows.Add(DiskRowViewModel.ForPartition(disk, partition));
+                children.Add(DiskRowViewModel.ForPartition(disk, partition));
             }
 
             foreach (var gap in disk.FreeSpaces)
             {
-                Rows.Add(DiskRowViewModel.ForFreeSpace(disk, gap));
+                children.Add(DiskRowViewModel.ForFreeSpace(disk, gap));
+            }
+
+            _children[diskRow] = children;
+
+            // Развёрнут по умолчанию: все дети сразу в списке.
+            foreach (var child in children)
+            {
+                Rows.Add(child);
             }
         }
     }
 
     private void UpdateSelection()
     {
-        Warnings.Clear();
-        DenialReason = null;
-        PlanSummary = string.Empty;
-
-        if (Selected is not null)
-        {
-            DenialReason = Selected.Verdict.Reason;
-
-            if (Selected.IsSelectable)
-            {
-                PlanSummary = DeploymentPlanner.Build(Selected.Target).Summary;
-
-                foreach (var warning in SelectionRules.Warnings(Selected.Target, _disks))
-                {
-                    Warnings.Add(warning);
-                }
-            }
-        }
+        // Причина отказа - единственное, что осталось внизу: она контекстная,
+        // видна только когда выбрали то, куда нельзя, и объясняет почему
+        // (например «мало места»). Предупреждения и итог разметки убраны
+        // по приёмке 17.08.2026 - см. спеку за эту дату.
+        DenialReason = Selected?.Verdict.Reason;
 
         Raise(nameof(CanCreate));
         Raise(nameof(CanDelete));

@@ -1,0 +1,376 @@
+<#
+.SYNOPSIS
+    Полный круг проверки в WinPE одной командой: собрать, загрузить, запустить,
+    снять экран, забрать журнал.
+
+.DESCRIPTION
+    Раньше это была простыня из двенадцати команд со слепыми паузами. Порядок
+    в ней приходилось держать в голове, а любой сбой посреди оставлял стенд
+    в непонятном состоянии — вплоть до того, что на экране оказывалось прошлое
+    приложение под видом нового.
+
+    Здесь круг делается целиком и объясняет каждый свой шаг. Три правила:
+
+    1. Ждать по признаку, а не по часам. Признак готовности один и тот же:
+       картинка перестала меняться. Медленная машина не ломает круг, быстрая
+       не заставляет ждать зря.
+    2. Всегда доводить до снимка и журнала. Не дождались окна — это тоже
+       результат, и смотреть на него надо на картинке, а не гадать.
+    3. Освобождать носитель самому. Занятый виртуалкой диск — обычное начало
+       круга, а не повод отказаться.
+
+    По умолчанию обновляется только приложение: полная пересборка перекладывает
+    две трети гигабайта загрузочных файлов, которые не менялись. Полный круг
+    нужен, когда менялся сам носитель, — ключ -Media Full.
+
+.EXAMPLE
+    powershell -File tools/Stand/Invoke-PeaceRound.ps1
+    Обычный круг: опубликовать, подменить приложение, загрузиться, снять экран.
+
+.EXAMPLE
+    powershell -File tools/Stand/Invoke-PeaceRound.ps1 -Media Full
+    То же, но носитель собирается заново — после правок в Build-PeaceMedia.ps1.
+
+.EXAMPLE
+    powershell -File tools/Stand/Invoke-PeaceRound.ps1 -Run 'WindowsPeace\DiskDump\DiskDump.exe' -Media Full
+    Запустить в WinPE не мастера, а отладочную утилиту.
+#>
+[CmdletBinding()]
+param(
+    [ValidateSet('App', 'Full')] [string] $Media = 'App',
+    [switch] $SkipPublish,
+
+    [string] $VhdxPath = 'D:\WindowsPeace-Stand\peace.vhdx',
+
+    # Пустой диск, на который мастер мог бы ставить. Без него в стенде один
+    # диск — сам носитель, а установка на него запрещена по замыслу.
+    # Пустая строка — круг без цели, как было до появления третьего экрана.
+    [string] $TargetVhdxPath = 'D:\WindowsPeace-Stand\target.vhdx',
+    [string] $AppFolder = 'artifacts\setup',
+    [string] $DiskDumpFolder,
+    [string] $OutFolder = 'D:\WindowsPeace-Stand\round',
+    [string] $VmName = 'Windows Peace Stand',
+
+    # Что запустить на носителе руками, из командной строки. Путь от корня
+    # раздела данных. Без этого ключа круг ничего не набирает: образ правлен,
+    # и мастер поднимается сам. Ключ нужен для отладочных программ вроде
+    # DiskDump, которые сами не запускаются.
+    [string] $Run,
+
+    # Не ждать приложения вовсе: только загрузиться и снять экран.
+    [switch] $NoRun,
+    [switch] $KeepRunning,
+
+    # Что нажать в окне, когда оно появится: «{Tab}», «{Down}», «{Enter}» —
+    # клавиши, всё остальное набирается как текст. Мыши у стенда нет, и дальше
+    # первого экрана без этого не пройти.
+    [string[]] $Then = @(),
+
+    # Где искать носитель в WinPE. Буквы там непредсказуемы: раздел данных
+    # однажды оказался C:, и опираться на них нельзя — только перебор.
+    [string] $SearchLetters = 'C D E F G H I J',
+
+    [double] $BootTimeoutSeconds = 240,
+    [double] $RunTimeoutSeconds = 150
+)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+
+Import-Module (Join-Path $PSScriptRoot 'PeaceFrames.psm1') -Force
+Import-Module (Join-Path $repoRoot 'tools\Media\PeaceMedia.psm1') -Force
+
+Assert-PeaceAdmin
+
+function Resolve-RepoPath {
+    <#
+        Относительный путь считается от корня репозитория, абсолютный берётся
+        как есть. Без этого Join-Path склеивает «D:\repo» и «D:\setup»
+        в «D:\repo\D:\setup», а ошибка потом приходит совсем из другого места.
+    #>
+    param([string] $Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $Path }
+    if ([IO.Path]::IsPathRooted($Path)) { return $Path }
+    Join-Path $repoRoot $Path
+}
+
+# Насколько сильно должна измениться картинка, чтобы считаться новой.
+# Окно командной строки занимает треть экрана, окно мастера — почти весь;
+# перевод строки и мигающий курсор не дотягивают ни до того, ни до другого.
+$CmdAppearedChange = 0.03
+$AppAppearedChange = 0.2
+
+# А вот смена экрана внутри окна меняет куда меньше: оба экрана белые, разница —
+# это несколько строк текста и рамка таблицы, меньше процента точек. Порог здесь
+# отделяет её от дрожания картинки, а не от появления окна.
+$ScreenChangedChange = 0.005
+
+$started = Get-Date
+$step = 0
+function Write-Step {
+    param([string] $Text)
+    $script:step++
+    $elapsed = ((Get-Date) - $started).TotalSeconds
+    Write-Host ("[{0}] {1,5:N0} с  {2}" -f $script:step, $elapsed, $Text) -ForegroundColor Cyan
+}
+
+if (-not (Test-Path $OutFolder)) { New-Item -ItemType Directory -Force -Path $OutFolder | Out-Null }
+$bootShot = Join-Path $OutFolder '01-boot.png'
+$cmdShot  = Join-Path $OutFolder '02-cmd.png'
+$runShot  = Join-Path $OutFolder '03-run.png'
+$thenShot = Join-Path $OutFolder '04-then.png'
+$logCopy  = Join-Path $OutFolder $PeaceMediaLayout.LogFile
+
+# ---------- 1. приложение ----------
+
+if ($SkipPublish) {
+    Write-Step 'Публикация пропущена по ключу.'
+}
+else {
+    Write-Step 'Публикую приложение...'
+    $publish = & dotnet publish (Join-Path $repoRoot 'src\WindowsPeace.Setup') `
+        -c Release -r win-x64 --self-contained true -o (Resolve-RepoPath $AppFolder) --nologo -v q 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $publish | ForEach-Object { Write-Host $_ }
+        throw 'Публикация не прошла. Круг дальше не идёт: на носитель нечего класть.'
+    }
+}
+
+# ---------- 2. освободить носитель ----------
+
+$holders = @(Get-PeaceVhdxHolder -VhdxPath $VhdxPath)
+if ($holders.Count -gt 0) {
+    Write-Step "Освобождаю носитель: его держит $($holders -join ', ')."
+    foreach ($holder in $holders) {
+        $vm = Get-VM -Name $holder -ErrorAction SilentlyContinue
+        if ($vm -and $vm.State -ne 'Off') {
+            Stop-VM -Name $holder -TurnOff -Force -ErrorAction SilentlyContinue
+        }
+        Remove-VM -Name $holder -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ---------- 3. носитель ----------
+
+$mediaMode = $Media
+if ($mediaMode -eq 'App' -and -not (Test-Path $VhdxPath)) {
+    Write-Step 'Носителя ещё нет — собираю целиком, хотя просили только приложение.'
+    $mediaMode = 'Full'
+}
+
+if ($mediaMode -eq 'Full') {
+    Write-Step 'Собираю носитель целиком...'
+    $buildArgs = @{
+        VhdxPath       = $VhdxPath
+        AppFolder      = (Resolve-RepoPath $AppFolder)
+        SkipInstallWim = $true
+    }
+    if ($DiskDumpFolder) { $buildArgs.DiskDumpFolder = (Resolve-RepoPath $DiskDumpFolder) }
+    & (Join-Path $repoRoot 'tools\Media\Build-PeaceMedia.ps1') @buildArgs
+}
+else {
+    Write-Step 'Подменяю приложение на носителе...'
+    $updateArgs = @{
+        VhdxPath  = $VhdxPath
+        AppFolder = (Resolve-RepoPath $AppFolder)
+        ResetLog  = $true
+    }
+    if ($DiskDumpFolder) { $updateArgs.DiskDumpFolder = (Resolve-RepoPath $DiskDumpFolder) }
+    Update-PeaceMediaApp @updateArgs
+}
+
+# ---------- 4. виртуалка ----------
+
+Write-Step 'Создаю виртуалку и включаю её...'
+& (Join-Path $PSScriptRoot 'New-PeaceVm.ps1') -Name $VmName -VhdxPath $VhdxPath `
+    -TargetVhdxPath $TargetVhdxPath | Out-Null
+Start-VM -Name $VmName | Out-Null
+
+$settled = $true
+$trouble = @()
+
+try {
+    # ---------- 5. загрузка ----------
+
+    Write-Step 'Жду, пока WinPE загрузится (по картинке, а не по часам)...'
+    $boot = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
+        -TimeoutSeconds $BootTimeoutSeconds -MinWaitSeconds 12 -StableSeconds 3 `
+        -What 'экран загрузки'
+
+    if ($boot.Frame) { Save-PeaceFrame -Frame $boot.Frame -Path $bootShot }
+    if (-not $boot.Settled) {
+        $settled = $false
+        $trouble += $boot.Reason
+        Write-Warning $boot.Reason
+    }
+    else {
+        Write-Step "Среда загрузилась. Экран: $bootShot"
+    }
+
+    # Кадр, на котором приложение уже на экране. Дальше от него отсчитывается
+    # всё остальное; $null значит, что приложения мы так и не увидели.
+    $appFrame = $null
+    $appShot = $bootShot
+
+    if ($NoRun) {
+        Write-Step 'Ожидание приложения пропущено по ключу -NoRun.'
+    }
+    elseif (-not $boot.Settled) {
+        Write-Step 'Среда не поднялась — приложения ждать не от чего.'
+    }
+    elseif (-not $Run) {
+        # ---------- 6. приложение поднялось само ----------
+        # Образ правлен: winpeshl.ini запускает мастер вместо установщика
+        # Windows. Значит, устоявшийся экран загрузки — это уже он, и открывать
+        # командную строку не нужно. Больше того, нельзя: Shift+F10 в мастере
+        # ничего не откроет, а набранное уйдёт прямо в его окно.
+        $appFrame = $boot.Frame
+        Write-Step "Мастер поднялся сам, без командной строки. Снимок: $bootShot"
+    }
+    else {
+        # ---------- 6. командная строка ----------
+
+        Write-Step 'Открываю командную строку (Shift+F10)...'
+        & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -ShiftF10 | Out-Null
+
+        $cmd = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
+            -TimeoutSeconds 45 -StableSeconds 1.5 -PollSeconds 0.5 `
+            -DifferentFrom $boot.Frame -MinDifference $CmdAppearedChange `
+            -What 'окно командной строки'
+
+        if ($cmd.Frame) { Save-PeaceFrame -Frame $cmd.Frame -Path $cmdShot }
+        if (-not $cmd.Settled) {
+            $settled = $false
+            $trouble += 'Командная строка не открылась: ' + $cmd.Reason
+            Write-Warning $cmd.Reason
+        }
+        else {
+            # ---------- 7. запуск ----------
+
+            # Носитель ищется по описи в корне — тем же признаком, каким его
+            # находит сам мастер. Поиск и запуск одной строкой: лишний шаг —
+            # лишние полторы секунды и лишнее место, где круг может сбиться.
+            $line = "for %d in ($SearchLetters) do @if exist %d:\$($PeaceMediaLayout.Manifest) %d:\$Run"
+
+            Write-Step "Набираю: $line"
+            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send $line | Out-Null
+
+            # Кадр снимается после набора, но до Enter: иначе появившийся
+            # на экране текст сам по себе сойдёт за «что-то изменилось».
+            Start-Sleep -Milliseconds 700
+            $typed = Get-PeaceVmFrame -Name $VmName
+
+            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send '{Enter}' | Out-Null
+
+            Write-Step 'Жду, пока на экране появится приложение...'
+            # Порог в пятую часть экрана отделяет окно во весь экран от того,
+            # что командная строка просто перевела строку или напечатала отказ.
+            $app = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
+                -TimeoutSeconds $RunTimeoutSeconds -StableSeconds 2.5 `
+                -DifferentFrom $typed -MinDifference $AppAppearedChange `
+                -What 'окно приложения'
+
+            if ($app.Frame) { Save-PeaceFrame -Frame $app.Frame -Path $runShot }
+            if (-not $app.Settled) {
+                $settled = $false
+                $trouble += 'Приложение не показалось: ' + $app.Reason
+                Write-Warning $app.Reason
+                Write-Warning "Последний кадр всё равно снят: $runShot. Смотри на него — там может быть отказ в командной строке."
+            }
+            else {
+                Write-Step "Приложение на экране. Снимок: $runShot"
+                $appFrame = $app.Frame
+                $appShot = $runShot
+            }
+        }
+    }
+
+    # ---------- 7. пройти по экранам ----------
+    # Одинаково для обоих путей: приложение либо поднялось само, либо запущено
+    # из командной строки, а дальше с ним разговаривают клавишами.
+
+    if ($Then.Count -gt 0) {
+        if (-not $appFrame) {
+            $settled = $false
+            $trouble += 'Нажимать было некуда: приложения на экране не оказалось.'
+        }
+        else {
+            Write-Step "Нажимаю в окне: $($Then -join ' ')"
+            & (Join-Path $PSScriptRoot 'Send-PeaceVmKeys.ps1') -Name $VmName -Send $Then | Out-Null
+
+                # Имя нарочно не $then: так зовётся параметр, а переменная
+                # параметра сохраняет свой тип [string[]] и молча превращает
+                # присвоенный объект в строку. Уже поймано.
+                # AllowBlank обязателен. Проверка на однотонность бережёт
+                # от чёрного экрана загрузки, но окно приложения к этому времени
+                # уже на месте, а последние экраны мастера почти пусты: белое
+                # поле с двумя строками текста не дотягивает до порога «есть
+                # что показать», и ожидание не кончалось бы никогда. От того,
+                # что мы примем не тот экран за нужный, бережёт DifferentFrom
+                # и снимок, который всё равно снимается.
+            $afterKeys = Wait-PeaceStableFrame -Capture { Get-PeaceVmFrame -Name $VmName } `
+                -TimeoutSeconds 60 -StableSeconds 2 -AllowBlank `
+                -DifferentFrom $appFrame -MinDifference $ScreenChangedChange `
+                -What 'экран после нажатий'
+
+            # Снимок нужен в обоих случаях: не туда пришли — это тоже ответ,
+            # и увидеть его надо на картинке, а не гадать по отказу.
+            if ($afterKeys.Frame) { Save-PeaceFrame -Frame $afterKeys.Frame -Path $thenShot }
+            if (-not $afterKeys.Settled) {
+                $settled = $false
+                $trouble += 'Экран после нажатий не устоялся: ' + $afterKeys.Reason
+                Write-Warning $afterKeys.Reason
+                Write-Warning "Последний кадр всё равно снят: $thenShot"
+            }
+            else {
+                Write-Step "Экран после нажатий. Снимок: $thenShot"
+                $appShot = $thenShot
+            }
+        }
+    }
+}
+finally {
+    # ---------- 8. журнал ----------
+    # Забирается всегда, даже когда круг не удался: именно тогда он и нужен.
+
+    if (-not $KeepRunning) {
+        # WinPE не отвечает на кнопку питания: службы, которая её слушает, там нет.
+        # Гость обесточивается, и всё, что мастер не успел сбросить на диск, пропадает.
+        # Поэтому журнал пишется со сбросом на диск после каждой записи.
+        Write-Step 'Выключаю виртуалку и забираю журнал с носителя...'
+        $vm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
+        if ($vm -and $vm.State -ne 'Off') {
+            Stop-VM -Name $VmName -TurnOff -Force -ErrorAction SilentlyContinue
+        }
+        Remove-VM -Name $VmName -Force -ErrorAction SilentlyContinue
+
+        $log = @(Get-PeaceMediaLog -VhdxPath $VhdxPath -OutPath $logCopy)
+        if ($log.Count -gt 0) {
+            Write-Host ''
+            Write-Host "Журнал мастера ($($log.Count) записей, копия в $logCopy):" -ForegroundColor Cyan
+            $log | ForEach-Object { Write-Host "  $_" }
+        }
+    }
+    else {
+        Write-Step "Виртуалка оставлена работать. Журнал не забрать, пока она жива."
+    }
+}
+
+# ---------- итог ----------
+
+Write-Host ''
+$total = ((Get-Date) - $started).TotalSeconds
+if (-not $settled) {
+    Write-Host ("Круг пройден не до конца, {0:N0} с." -f $total) -ForegroundColor Yellow
+    $trouble | ForEach-Object { Write-Host "  — $_" -ForegroundColor Yellow }
+    Write-Host "Снимки: $OutFolder" -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host ("Круг пройден за {0:N0} с. Смотреть: {1}" -f $total, $appShot) -ForegroundColor Green
+
+# Явный ноль обязателен: последней в круге работает robocopy, а она возвращает
+# единицу, когда что-то скопировала. Без этой строки удачный круг сообщал бы
+# вызвавшему об отказе.
+exit 0

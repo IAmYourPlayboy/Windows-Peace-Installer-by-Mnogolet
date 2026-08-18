@@ -253,7 +253,7 @@
       "properties": {
         "url":     { "type": "string", "format": "uri" },
         "path":    { "type": "string", "description": "Локальный путь, если файл уже скачан вручную." },
-        "sha256":  { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "sha256":  { "type": "string", "pattern": "^[a-fA-F0-9]{64}$", "description": "Заполняется автоматически при сборке носителя в WindowsPeace.Studio. Заметка живёт здесь, а не в meta.description рецепта: то описание человек читает на первом экране мастера, и служебным разговорам там не место." },
         "sizeBytes": { "type": "integer", "minimum": 1 }
       },
       "anyOf": [{ "required": ["url"] }, { "required": ["path"] }]

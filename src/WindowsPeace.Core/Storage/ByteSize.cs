@@ -1,0 +1,45 @@
+using System.Globalization;
+using CoreLocalization = WindowsPeace.Core.Localization;
+
+namespace WindowsPeace.Core.Storage;
+
+/// <summary>
+/// Размер в байтах, показанный человеку.
+///
+/// Одно место на весь проект. То же самое было написано дважды — в предпросмотре
+/// разметки и в строке списка дисков — и просилось в третий раз, в список
+/// рецептов. Разойдясь, они показали бы один и тот же объём по-разному
+/// на соседних экранах, а человек в этот момент решает, что стирать.
+/// </summary>
+public static class ByteSize
+{
+    private const ulong Mib = 1024UL * 1024UL;
+    private const ulong Gib = 1024UL * Mib;
+
+    /// <summary>
+    /// Гигабайты считаются от гибибайта — так же, как их считает сама Windows.
+    /// Диск, который «Управление дисками» показывает как 476,9 ГБ, обязан
+    /// выглядеть здесь ровно так же: расхождение читается как «программа
+    /// смотрит на другой диск». Мельче гигабайта счёт идёт в мегабайтах
+    /// и целыми: доли мегабайта человеку ничего не говорят.
+    ///
+    /// Меньше мегабайта, но не ноль, — «менее 1 МБ», а не «0 МБ». Ноль там,
+    /// где что-то есть, — это неправда, пусть и мелкая.
+    /// </summary>
+    public static string Format(ulong bytes)
+    {
+        if (bytes >= Gib)
+        {
+            return ((double)bytes / Gib).ToString("0.#", CultureInfo.CurrentCulture) + " " +
+                   CoreLocalization.Localization.Current[CoreLocalization.Keys.Size.Gb];
+        }
+
+        if (bytes > 0 && bytes < Mib)
+        {
+            return CoreLocalization.Localization.Current[CoreLocalization.Keys.Size.LessThanMb];
+        }
+
+        return (bytes / Mib).ToString(CultureInfo.CurrentCulture) + " " +
+               CoreLocalization.Localization.Current[CoreLocalization.Keys.Size.Mb];
+    }
+}

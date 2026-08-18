@@ -1,0 +1,26 @@
+<UserControl x:Class="WindowsPeace.Setup.Pages.LanguagePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <!--
+            IsSynchronizedWithCurrentItem="False" обязателен по той же причине,
+            что и на экране рецептов: иначе список открывался бы с уже выбранным
+            языком, хотя человек ничего не выбирал.
+        -->
+        <ListView ItemsSource="{Binding Options}"
+                  SelectedItem="{Binding Selected, Mode=TwoWay}"
+                  IsSynchronizedWithCurrentItem="False">
+            <!--
+                Заголовка у столбца нет: язык интерфейса ещё не выбран, а заголовок
+                экрана сверху и подписи строк «Русский»/«English» и так называют,
+                что здесь выбирают. Слово на одном языке до выбора было бы враньём
+                по той же причине, по которой кнопка приветствия двуязычна.
+            -->
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Width="200" DisplayMemberBinding="{Binding NativeLabel}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+</UserControl>

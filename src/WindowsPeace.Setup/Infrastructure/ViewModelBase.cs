@@ -1,12 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Infrastructure;
 
 /// <summary>Уведомления об изменении свойств.</summary>
 public abstract class ViewModelBase : INotifyPropertyChanged
 {
+    protected ViewModelBase()
+    {
+        WeakEventManager<CoreLocalization.Localization, EventArgs>.AddHandler(
+            CoreLocalization.Localization.Current, nameof(CoreLocalization.Localization.LanguageChanged), OnLanguageChanged);
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected void Raise([CallerMemberName] string? propertyName = null)
@@ -23,4 +32,6 @@ public abstract class ViewModelBase : INotifyPropertyChanged
         Raise(propertyName);
         return true;
     }
+
+    private void OnLanguageChanged(object? sender, EventArgs e) => Raise(null);
 }

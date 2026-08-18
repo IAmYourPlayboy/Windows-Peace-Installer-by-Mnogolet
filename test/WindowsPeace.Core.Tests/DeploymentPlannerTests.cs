@@ -2,9 +2,11 @@
 using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Tests;
 
+[Collection(LocalizationCollection.Name)]
 public class DeploymentPlannerTests
 {
     [Fact]
@@ -59,5 +61,25 @@ public class DeploymentPlannerTests
         Assert.Contains("EFI", plan.Summary);
         Assert.Contains("300 МБ", plan.Summary);
         Assert.Contains("Восстановление", plan.Summary);
+    }
+
+    [Fact]
+    public void Предпросмотр_переводится_на_английский()
+    {
+        CoreLocalization.Localization.Current.Language = CoreLocalization.Language.English;
+        try
+        {
+            var wholeDiskPlan = DeploymentPlanner.Build(SelectionTarget.ForWholeDisk(TestDisks.Disk(size: 500 * TestDisks.Gib)));
+            Assert.Contains("Recovery", wholeDiskPlan.Summary);
+
+            var partition = TestDisks.Partition(size: 200 * TestDisks.Gib);
+            var disk = TestDisks.Disk(partitions: new[] { partition });
+            var singlePlan = DeploymentPlanner.Build(SelectionTarget.ForPartition(disk, partition));
+            Assert.Contains("Other partitions are unchanged", singlePlan.Summary);
+        }
+        finally
+        {
+            CoreLocalization.Localization.Current.Language = CoreLocalization.Language.Russian;
+        }
     }
 }

@@ -1,0 +1,35 @@
+<UserControl x:Class="WindowsPeace.Setup.Pages.ConfirmPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:WindowsPeace.Setup.Localization">
+    <!--
+        Внутри экрана нет ничего, что нажимают руками: переходы «Назад» и
+        «Установить» и выход живут в оболочке. Focusable="False" на прокрутке
+        убирает лишнюю остановку клавиши Tab - иначе фокус застревал бы
+        на пустом ящике. Проверено на стенде в WinPE.
+    -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+        <StackPanel>
+            <!--
+                Только объяснение своими словами. Выход отсюда есть всегда -
+                кнопка «Назад» на этом экране доступна.
+            -->
+            <TextBlock Text="{Binding Trouble}" TextWrapping="Wrap" Margin="0,0,0,16"
+                       Foreground="{StaticResource TroubleBrush}"
+                       Visibility="{Binding HasTrouble, Converter={StaticResource BoolToVisibility}}" />
+
+            <TextBlock Text="{loc:T confirm.whatLabel}" FontWeight="Bold" Margin="0,0,0,4" />
+            <TextBlock Text="{Binding RecipeName}" TextWrapping="Wrap" Margin="0,0,0,16" />
+
+            <TextBlock Text="{loc:T confirm.whereLabel}" FontWeight="Bold" Margin="0,0,0,4" />
+            <TextBlock Text="{Binding DiskModel}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding DiskSummary}" TextWrapping="Wrap" Margin="0,0,0,16" />
+
+            <TextBlock Text="{loc:T confirm.effectLabel}" FontWeight="Bold" Margin="0,0,0,4" />
+            <!-- PlanEffect молчит при установке в раздел, тогда строка сворачивается. -->
+            <TextBlock Text="{Binding PlanEffect}" TextWrapping="Wrap"
+                       Visibility="{Binding HasPlanEffect, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Text="{Binding PlanSummary}" TextWrapping="Wrap" Margin="0,0,0,16" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
