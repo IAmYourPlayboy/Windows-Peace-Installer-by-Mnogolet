@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using WindowsPeace.Core.Media;
 using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -23,4 +24,7 @@ public interface IWizardChoice
 
     /// <summary>Все диски машины: по ним видно, не стоит ли Windows на соседнем.</summary>
     IReadOnlyList<DiskInfo> Disks { get; }
+
+    /// <summary>Язык устанавливаемой системы — выбор на экране языка, для шага В.</summary>
+    CoreLocalization.Language SystemLanguage { get; }
 }

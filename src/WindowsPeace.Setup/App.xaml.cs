@@ -54,6 +54,8 @@ public partial class App : Application
 
         var probe = new RealFileSystemProbe();
 
+        var welcome = new WelcomeViewModel();
+        var language = new LanguageViewModel();
         var recipePicker = CreateRecipePicker(e.Args, snapshot, probe);
 
         // Прямой разговор с Windows вместо WMI: библиотека System.Management
@@ -67,7 +69,7 @@ public partial class App : Application
         // Сводка перед установкой собирается не здесь, а при входе на неё:
         // в этот момент диск ещё не выбран. Посредник знает оба первых экрана,
         // поэтому сама сводка не знает ни одного.
-        var choice = new WizardChoice(recipePicker, diskPicker);
+        var choice = new WizardChoice(recipePicker, diskPicker, language);
 
         Checkpoint("Модели экранов созданы", null);
 
@@ -77,6 +79,8 @@ public partial class App : Application
         var navigator = new WizardNavigator(
             new List<IWizardPage>
             {
+                welcome,
+                language,
                 recipePicker,
                 diskPicker,
                 new ConfirmViewModel(choice),

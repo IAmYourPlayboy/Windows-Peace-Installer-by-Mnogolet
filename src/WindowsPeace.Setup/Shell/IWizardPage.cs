@@ -1,4 +1,5 @@
 ﻿using System;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Shell;
 
@@ -16,7 +17,7 @@ public interface IWizardPage
     /// после которого начинается работа с диском, называет кнопку своим словом:
     /// человек должен понимать, что произойдёт по нажатию.
     /// </summary>
-    string NextTitle => "Далее";
+    string NextTitle => CoreLocalization.Localization.Current[CoreLocalization.Keys.Common.Next];
 
     /// <summary>Можно ли уходить со страницы вперёд.</summary>
     bool CanGoNext { get; }

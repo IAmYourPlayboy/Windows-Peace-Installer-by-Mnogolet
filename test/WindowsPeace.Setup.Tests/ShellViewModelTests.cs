@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using WindowsPeace.Setup.Shell;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Tests;
 
@@ -52,11 +53,15 @@ public class ShellViewModelTests
 
     /// <summary>
     /// «Далее» — то, что подходит большинству экранов, и его не приходится
-    /// повторять в каждом.
+    /// повторять в каждом. Название кнопки по умолчанию берётся из службы
+    /// локализации, поэтому язык здесь закреплён явно: другие тесты в сборке
+    /// переключают его же общий экземпляр.
     /// </summary>
     [Fact]
     public void Обычная_страница_не_называет_кнопку_и_получает_Далее()
     {
+        CoreLocalization.Localization.Current.Language = CoreLocalization.Language.Russian;
+
         Assert.Equal("Далее", Shell(new FakePage("Диски"), new FakePage("Дальше")).NextTitle);
     }
 

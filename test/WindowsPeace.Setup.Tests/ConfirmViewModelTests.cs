@@ -5,6 +5,7 @@ using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Pages;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Tests;
 
@@ -19,6 +20,8 @@ internal sealed class FakeChoice : IWizardChoice
     public SelectionTarget? Target { get; set; }
 
     public IReadOnlyList<DiskInfo> Disks { get; set; } = Array.Empty<DiskInfo>();
+
+    public CoreLocalization.Language SystemLanguage => CoreLocalization.Language.Russian;
 }
 
 public class ConfirmViewModelTests

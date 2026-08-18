@@ -110,6 +110,12 @@
             </TextBlock>
         </DataTemplate>
 
+        <DataTemplate DataType="{x:Type pages:WelcomeViewModel}">
+            <pages:WelcomePage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type pages:LanguageViewModel}">
+            <pages:LanguagePage />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type pages:RecipePickerViewModel}">
             <pages:RecipePickerPage />
         </DataTemplate>
