@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -72,8 +73,9 @@ public partial class DiskPickerPage : UserControl
     /// </summary>
     private void NotYet(object sender, RoutedEventArgs e)
         => MessageBox.Show(
-            "Эта операция появится на следующем шаге." + Environment.NewLine + Environment.NewLine +
-            "Сейчас программа ничего не записывает на диск.",
+            CoreLocalization.Localization.Current[CoreLocalization.Keys.Disk.NotYetSoon] +
+                Environment.NewLine + Environment.NewLine +
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Disk.NotYetNoWrite],
             "Windows Peace",
             MessageBoxButton.OK,
             MessageBoxImage.Information);

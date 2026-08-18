@@ -12,12 +12,11 @@ namespace WindowsPeace.Setup.Tests;
 /// последовательно друг с другом, а остальные тесты сборки — как обычно,
 /// параллельно.
 ///
-/// Сейчас в коллекции: <see cref="LanguageViewModelTests"/>,
-/// <see cref="ViewModelBaseLanguageTests"/>, <see cref="WizardFlowTests"/>,
-/// <see cref="ShellViewModelTests"/> — они единственные читают или пишут
-/// в <c>Localization.Current.Language</c>. Новый тест, который тоже это
-/// делает, обязан получить ту же пометку — иначе гонка вернётся тихо,
-/// без предупреждения от компилятора.
+/// В коллекции — все классы, что читают или пишут
+/// <c>Localization.Current.Language</c> (перечислять их здесь поимённо незачем:
+/// список устаревает). Новый такой тест обязан получить ту же пометку
+/// <c>[Collection(Name)]</c> — иначе гонка вернётся тихо, без предупреждения
+/// от компилятора.
 /// </summary>
 [CollectionDefinition(Name)]
 public sealed class LocalizationCollection

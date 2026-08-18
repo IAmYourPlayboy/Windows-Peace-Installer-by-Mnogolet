@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using WindowsPeace.Core.Diagnostics;
 using WindowsPeace.Core.Storage.Native;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Storage;
 
@@ -54,12 +56,12 @@ public sealed class NativeDiskEnumerator : IDiskEnumerator
         catch (OperationCanceledException)
         {
             scope.TimedOut();
-            return DiskSnapshot.Failed("Опрос дисков превысил отведённое время");
+            return DiskSnapshot.Failed(CoreLocalization.Localization.Current[CoreLocalization.Keys.Disk.ErrorTimeout]);
         }
         catch (UnauthorizedAccessException exception)
         {
             scope.Failure(exception.Message);
-            return DiskSnapshot.Failed("Недостаточно прав для опроса дисков");
+            return DiskSnapshot.Failed(CoreLocalization.Localization.Current[CoreLocalization.Keys.Disk.ErrorForbidden]);
         }
 #pragma warning disable CA1031 // Перехват любого исключения здесь обязателен — объяснение в теле.
         catch (Exception exception)
@@ -72,7 +74,10 @@ public sealed class NativeDiskEnumerator : IDiskEnumerator
             //
             // Исключение не проглатывается: полный текст уходит в журнал и на экран.
             scope.Failure(exception.ToString());
-            return DiskSnapshot.Failed("Опрос дисков сорвался: " + exception.Message);
+            return DiskSnapshot.Failed(string.Format(
+                CultureInfo.CurrentCulture,
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Disk.ErrorFailed],
+                exception.Message));
         }
 #pragma warning restore CA1031
     }

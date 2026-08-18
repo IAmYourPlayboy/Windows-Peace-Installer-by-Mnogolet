@@ -75,6 +75,11 @@ public static class Keys
         public const string StatusInspecting = "disk.status.inspecting";
         public const string StatusLocating = "disk.status.locating";
         public const string ErrorCancelled = "disk.error.cancelled";
+        public const string ErrorTimeout = "disk.error.timeout";
+        public const string ErrorForbidden = "disk.error.forbidden";
+        public const string ErrorFailed = "disk.error.failed";
+        public const string NotYetSoon = "disk.notYet.soon";
+        public const string NotYetNoWrite = "disk.notYet.noWrite";
         public const string FreeSpace = "disk.freeSpace";
         public const string Partition = "disk.partition";
         public const string PartitionLabel = "disk.partitionLabel";
