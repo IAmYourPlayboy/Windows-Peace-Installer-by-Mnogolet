@@ -2,9 +2,11 @@ using System;
 using WindowsPeace.Core.Media;
 using WindowsPeace.Setup.Pages;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Tests;
 
+[Collection(LocalizationCollection.Name)]
 public class RecipePickerViewModelTests
 {
     private static MediaManifestResult OneRecipe() => MediaManifestReader.Read("""
@@ -122,5 +124,59 @@ public class RecipePickerViewModelTests
 
         Assert.False(page.HasTrouble);
         Assert.Equal(string.Empty, page.Trouble);
+    }
+
+    /// <summary>
+    /// Заголовок читается ключом, а не застывшей строкой: экран третий, язык
+    /// выбирается вторым, и заголовку положено перещёлкиваться вместе со всем
+    /// остальным.
+    /// </summary>
+    [Fact]
+    public void Заголовок_меняется_с_языком()
+    {
+        var loc = CoreLocalization.Localization.Current;
+        try
+        {
+            var page = Screen(OneRecipe());
+
+            loc.Language = CoreLocalization.Language.Russian;
+            Assert.Equal("Что ставим?", page.Title);
+
+            loc.Language = CoreLocalization.Language.English;
+            Assert.Equal("What to install?", page.Title);
+        }
+        finally
+        {
+            loc.Language = CoreLocalization.Language.Russian;
+        }
+    }
+
+    /// <summary>
+    /// Опись читается до выбора языка, поэтому <c>Trouble</c> обязан быть
+    /// геттером по состоянию, а не готовой строкой: иначе беда застыла бы
+    /// на языке по умолчанию, каким бы человек его дальше ни выбрал.
+    /// </summary>
+    [Fact]
+    public void Беда_носителя_не_найден_говорит_на_выбранном_языке()
+    {
+        var loc = CoreLocalization.Localization.Current;
+        try
+        {
+            var page = RecipePickerViewModel.WithoutMedia();
+
+            loc.Language = CoreLocalization.Language.Russian;
+            Assert.Equal(
+                "Носитель Windows Peace не найден: похоже, мастер запущен не с него. Ставить отсюда нечего.",
+                page.Trouble);
+
+            loc.Language = CoreLocalization.Language.English;
+            Assert.Equal(
+                "Windows Peace media not found: the wizard seems to be running from elsewhere. Nothing to install here.",
+                page.Trouble);
+        }
+        finally
+        {
+            loc.Language = CoreLocalization.Language.Russian;
+        }
     }
 }

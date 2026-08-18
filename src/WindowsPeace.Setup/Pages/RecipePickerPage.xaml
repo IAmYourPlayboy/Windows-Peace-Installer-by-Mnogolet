@@ -1,6 +1,7 @@
 <UserControl x:Class="WindowsPeace.Setup.Pages.RecipePickerPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:WindowsPeace.Setup.Localization">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -9,7 +10,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Margin="0,0,0,12" TextWrapping="Wrap"
-                   Text="Выберите, что установить. В списке - то, что записано на этом носителе."
+                   Text="{loc:T recipe.intro}"
                    Visibility="{Binding HasRecipes, Converter={StaticResource BoolToVisibility}}" />
 
         <!--
@@ -42,9 +43,9 @@
                   Visibility="{Binding HasRecipes, Converter={StaticResource BoolToVisibility}}">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Рецепт" Width="260" DisplayMemberBinding="{Binding Name}" />
-                    <GridViewColumn Header="Издание" Width="200" DisplayMemberBinding="{Binding Image}" />
-                    <GridViewColumn Header="Объём" Width="100" DisplayMemberBinding="{Binding Size}" />
+                    <GridViewColumn Header="{loc:T recipe.col.name}" Width="260" DisplayMemberBinding="{Binding Name}" />
+                    <GridViewColumn Header="{loc:T recipe.col.image}" Width="200" DisplayMemberBinding="{Binding Image}" />
+                    <GridViewColumn Header="{loc:T recipe.col.size}" Width="100" DisplayMemberBinding="{Binding Size}" />
 
                     <!--
                         Последний столбец занимает всё оставшееся место, а его текст
@@ -52,7 +53,7 @@
                         место, где сказано, чем одна сборка отличается от другой,
                         и обрезать его нельзя ни при какой ширине окна.
                     -->
-                    <GridViewColumn Header="Что это">
+                    <GridViewColumn Header="{loc:T recipe.col.what}">
                         <GridViewColumn.Width>
                             <MultiBinding Converter="{StaticResource RemainingWidth}">
                                 <Binding ElementName="RecipeList" Path="ActualWidth" />

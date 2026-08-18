@@ -13,5 +13,20 @@ public sealed class RussianStrings : ILanguagePack
 
         [Keys.Shell.Back] = "Назад",
         [Keys.Shell.Exit] = "Выйти из установщика",
+
+        [Keys.Recipe.Title] = "Что ставим?",
+        [Keys.Recipe.Intro] = "Выберите, что установить. В списке - то, что записано на этом носителе.",
+        [Keys.Recipe.ColName] = "Рецепт",
+        [Keys.Recipe.ColImage] = "Издание",
+        [Keys.Recipe.ColSize] = "Объём",
+        [Keys.Recipe.ColWhat] = "Что это",
+        [Keys.Recipe.TroubleNotFound] =
+            "Носитель Windows Peace не найден: похоже, мастер запущен не с него. Ставить отсюда нечего.",
+        [Keys.Recipe.TroubleDamaged] =
+            "Опись носителя испорчена: прочитать её не получается. Установить с этого носителя " +
+            "ничего нельзя - его нужно записать заново.",
+        [Keys.Recipe.TroubleTooNew] =
+            "Носитель собран более новой версией Windows Peace. Установить с него нельзя - нужен мастер посвежее.",
+        [Keys.Recipe.TroubleNoRecipes] = "На носителе нет ни одного рецепта: ставить с него нечего.",
     };
 }

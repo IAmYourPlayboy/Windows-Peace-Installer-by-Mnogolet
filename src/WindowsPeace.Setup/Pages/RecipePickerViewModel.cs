@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using WindowsPeace.Core.Media;
 using WindowsPeace.Setup.Infrastructure;
 using WindowsPeace.Setup.Shell;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -19,10 +20,22 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
 {
     private readonly List<RecipeRowViewModel> _recipes = new();
 
+    /// <summary>
+    /// Исход чтения описи. <c>null</c> — особый случай: носитель не найден вовсе,
+    /// у него нет статуса чтения, потому что читать было нечего.
+    ///
+    /// Хранится состояние, а не готовая строка беды: опись читается при старте
+    /// (<c>App.OnStartup</c>), до выбора языка (экран языка — второй, этот —
+    /// третий). Готовая строка застыла бы на языке по умолчанию; текст беды
+    /// рождается в геттере <see cref="Trouble"/> на языке показа и перещёлкивается
+    /// при смене языка вместе со всеми остальными свойствами.
+    /// </summary>
+    private readonly MediaManifestStatus? _status;
+
     private RecipeRowViewModel? _selectedRow;
 
     public RecipePickerViewModel(MediaManifestResult result)
-        : this(result.Message)
+        : this(result.Status)
     {
         if (result.Status != MediaManifestStatus.Ok)
         {
@@ -35,9 +48,9 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
         }
     }
 
-    private RecipePickerViewModel(string trouble)
+    private RecipePickerViewModel(MediaManifestStatus? status)
     {
-        Trouble = trouble;
+        _status = status;
     }
 
     /// <summary>
@@ -45,10 +58,9 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
     /// человеку у флешки этот список ничего не объясняет, а разбираться по нему
     /// будем мы.
     /// </summary>
-    public static RecipePickerViewModel WithoutMedia()
-        => new("Носитель Windows Peace не найден: похоже, мастер запущен не с него. Ставить отсюда нечего.");
+    public static RecipePickerViewModel WithoutMedia() => new((MediaManifestStatus?)null);
 
-    public string Title => "Что ставим?";
+    public string Title => CoreLocalization.Localization.Current[CoreLocalization.Keys.Recipe.Title];
 
     public IReadOnlyList<RecipeRowViewModel> Recipes => _recipes;
 
@@ -60,7 +72,14 @@ public sealed class RecipePickerViewModel : ViewModelBase, IWizardPage
     /// техническая причина живёт в журнале. Разбираться в наших ошибках человеку
     /// у флешки незачем, это наша работа.
     /// </summary>
-    public string Trouble { get; }
+    public string Trouble => _status switch
+    {
+        null => CoreLocalization.Localization.Current[CoreLocalization.Keys.Recipe.TroubleNotFound],
+        MediaManifestStatus.Damaged => CoreLocalization.Localization.Current[CoreLocalization.Keys.Recipe.TroubleDamaged],
+        MediaManifestStatus.TooNew => CoreLocalization.Localization.Current[CoreLocalization.Keys.Recipe.TroubleTooNew],
+        MediaManifestStatus.NoRecipes => CoreLocalization.Localization.Current[CoreLocalization.Keys.Recipe.TroubleNoRecipes],
+        _ => string.Empty,
+    };
 
     public bool HasTrouble => !string.IsNullOrEmpty(Trouble);
 
