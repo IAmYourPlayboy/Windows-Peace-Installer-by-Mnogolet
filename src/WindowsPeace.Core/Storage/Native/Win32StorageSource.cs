@@ -318,13 +318,13 @@ public sealed class Win32StorageSource : IRawStorageSource
                 string.Format(
                     CultureInfo.CurrentCulture,
                     CoreLocalization.Localization.Current[CoreLocalization.Keys.Layout.ReadFailed],
-                    error));
+                    error.ToString(CultureInfo.InvariantCulture)));
         }
 
         if (returned < 48)
         {
             return new Layout(PartitionStyle.Unknown, null, new List<RawPartition>(),
-                "Разметка прочитана не полностью");
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Layout.ReadIncomplete]);
         }
 
         var style = StyleFromWindows(ReadInt32(buffer, 0));

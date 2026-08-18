@@ -145,5 +145,6 @@ public static class Keys
     public static class Layout
     {
         public const string ReadFailed = "layout.readFailed";
+        public const string ReadIncomplete = "layout.readIncomplete";
     }
 }

@@ -120,5 +120,6 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Plan.SingleTail] = ". Остальные разделы не изменяются.",
 
         [Keys.Layout.ReadFailed] = "Разметку прочитать не удалось, код ошибки {0}",
+        [Keys.Layout.ReadIncomplete] = "Разметка прочитана не полностью",
     };
 }

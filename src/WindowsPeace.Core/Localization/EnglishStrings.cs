@@ -120,5 +120,6 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Plan.SingleTail] = ". Other partitions are unchanged.",
 
         [Keys.Layout.ReadFailed] = "Could not read the layout, error code {0}",
+        [Keys.Layout.ReadIncomplete] = "The layout was read incompletely",
     };
 }
