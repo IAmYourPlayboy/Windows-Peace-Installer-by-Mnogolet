@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using WindowsPeace.Core.Storage;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Selection;
 
@@ -33,7 +34,7 @@ public static class SelectionRules
             TargetKind.WholeDisk => Allowed(target),
             TargetKind.ExistingPartition => EvaluatePartition(target),
             TargetKind.FreeSpace => EvaluateSize(target.FreeSpace!.Size),
-            _ => SelectionVerdict.Denied("Неизвестный вид цели"),
+            _ => SelectionVerdict.Denied(CoreLocalization.Localization.Current[CoreLocalization.Keys.Sel.DenyUnknownTarget]),
         };
     }
 
@@ -46,22 +47,22 @@ public static class SelectionRules
     {
         if (disk.IsWindowsPeaceMedia)
         {
-            return SelectionVerdict.Denied("Это загрузочный носитель Windows Peace - установка сюда невозможна");
+            return SelectionVerdict.Denied(CoreLocalization.Localization.Current[CoreLocalization.Keys.Sel.DenyMedia]);
         }
 
         if (disk.IsSystem || disk.IsBoot)
         {
-            return SelectionVerdict.Denied("На этом диске работает текущая система");
+            return SelectionVerdict.Denied(CoreLocalization.Localization.Current[CoreLocalization.Keys.Sel.DenySystem]);
         }
 
         if (disk.IsOffline)
         {
-            return SelectionVerdict.Denied("Диск отключён");
+            return SelectionVerdict.Denied(CoreLocalization.Localization.Current[CoreLocalization.Keys.Sel.DenyOffline]);
         }
 
         if (disk.IsReadOnly)
         {
-            return SelectionVerdict.Denied("Диск защищён от записи");
+            return SelectionVerdict.Denied(CoreLocalization.Localization.Current[CoreLocalization.Keys.Sel.DenyReadOnly]);
         }
 
         return SelectionVerdict.Allowed;
@@ -73,7 +74,7 @@ public static class SelectionRules
 
         if (PartitionKinds.IsSystemService(partition.Kind))
         {
-            return SelectionVerdict.Denied("Это служебный раздел, система создаёт его сама");
+            return SelectionVerdict.Denied(CoreLocalization.Localization.Current[CoreLocalization.Keys.Sel.DenyService]);
         }
 
         return EvaluateSize(partition.Size);
@@ -89,7 +90,7 @@ public static class SelectionRules
         var missingGib = (MinimumWindowsPartitionBytes - sizeBytes + Gib - 1) / Gib;
         var text = string.Format(
             CultureInfo.CurrentCulture,
-            "Слишком мало места: не хватает {0} ГБ до минимальных 40 ГБ",
+            CoreLocalization.Localization.Current[CoreLocalization.Keys.Sel.TooSmall],
             missingGib);
 
         return SelectionVerdict.Denied(text);
@@ -113,31 +114,31 @@ public static class SelectionRules
         if (affected.Any(p => p.Content.WindowsFound))
         {
             Add(WarningKind.WindowsOnTarget, WarningSeverity.Important,
-                "На цели установлена Windows. Она будет удалена безвозвратно.");
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Warn.WindowsOnTarget]);
         }
 
         if (affected.Any(p => p.Content.UserFilesFound))
         {
             Add(WarningKind.UserFilesOnTarget, WarningSeverity.Important,
-                "На цели есть файлы пользователя. Они будут удалены безвозвратно.");
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Warn.UserFilesOnTarget]);
         }
 
         if (target.Disk.ProbeError is not null)
         {
             Add(WarningKind.PartitionsNotRead, WarningSeverity.Important,
-                "Разделы этого диска прочитать не удалось, поэтому неизвестно, что на нём лежит.");
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Warn.PartitionsNotRead]);
         }
 
         if (affected.Any(p => !p.Content.Inspected))
         {
             Add(WarningKind.ContentNotInspected, WarningSeverity.Notice,
-                "Содержимое части разделов проверить не удалось: у них нет буквы диска.");
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Warn.ContentNotInspected]);
         }
 
         if (target.Disk.Identity.Confidence != IdentityConfidence.Hardware)
         {
             Add(WarningKind.WeakIdentity, WarningSeverity.Notice,
-                "У диска не удалось прочитать серийный номер, опознать его надёжно нельзя.");
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Warn.WeakIdentity]);
         }
 
         var otherWindows = allDisks
@@ -148,7 +149,7 @@ public static class SelectionRules
         if (otherWindows)
         {
             Add(WarningKind.OtherWindowsFound, WarningSeverity.Notice,
-                "На другом диске найдена установленная Windows. Она может перехватывать загрузку.");
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Warn.OtherWindows]);
         }
 
         return warnings;

@@ -106,4 +106,25 @@ public static class Keys
         public const string Mb = "size.mb";
         public const string LessThanMb = "size.lessThanMb";
     }
+
+    public static class Sel
+    {
+        public const string DenyMedia = "sel.denyMedia";
+        public const string DenySystem = "sel.denySystem";
+        public const string DenyOffline = "sel.denyOffline";
+        public const string DenyReadOnly = "sel.denyReadOnly";
+        public const string DenyService = "sel.denyService";
+        public const string DenyUnknownTarget = "sel.denyUnknownTarget";
+        public const string TooSmall = "sel.tooSmall";
+    }
+
+    public static class Warn
+    {
+        public const string WindowsOnTarget = "warn.windowsOnTarget";
+        public const string UserFilesOnTarget = "warn.userFilesOnTarget";
+        public const string PartitionsNotRead = "warn.partitionsNotRead";
+        public const string ContentNotInspected = "warn.contentNotInspected";
+        public const string WeakIdentity = "warn.weakIdentity";
+        public const string OtherWindows = "warn.otherWindows";
+    }
 }

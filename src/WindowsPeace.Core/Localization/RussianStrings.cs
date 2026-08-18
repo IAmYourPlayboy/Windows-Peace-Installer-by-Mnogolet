@@ -95,5 +95,20 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Size.Gb] = "ГБ",
         [Keys.Size.Mb] = "МБ",
         [Keys.Size.LessThanMb] = "менее 1 МБ",
+
+        [Keys.Sel.DenyMedia] = "Это загрузочный носитель Windows Peace - установка сюда невозможна",
+        [Keys.Sel.DenySystem] = "На этом диске работает текущая система",
+        [Keys.Sel.DenyOffline] = "Диск отключён",
+        [Keys.Sel.DenyReadOnly] = "Диск защищён от записи",
+        [Keys.Sel.DenyService] = "Это служебный раздел, система создаёт его сама",
+        [Keys.Sel.DenyUnknownTarget] = "Неизвестный вид цели",
+        [Keys.Sel.TooSmall] = "Слишком мало места: не хватает {0} ГБ до минимальных 40 ГБ",
+
+        [Keys.Warn.WindowsOnTarget] = "На цели установлена Windows. Она будет удалена безвозвратно.",
+        [Keys.Warn.UserFilesOnTarget] = "На цели есть файлы пользователя. Они будут удалены безвозвратно.",
+        [Keys.Warn.PartitionsNotRead] = "Разделы этого диска прочитать не удалось, поэтому неизвестно, что на нём лежит.",
+        [Keys.Warn.ContentNotInspected] = "Содержимое части разделов проверить не удалось: у них нет буквы диска.",
+        [Keys.Warn.WeakIdentity] = "У диска не удалось прочитать серийный номер, опознать его надёжно нельзя.",
+        [Keys.Warn.OtherWindows] = "На другом диске найдена установленная Windows. Она может перехватывать загрузку.",
     };
 }

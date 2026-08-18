@@ -95,5 +95,20 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Size.Gb] = "GB",
         [Keys.Size.Mb] = "MB",
         [Keys.Size.LessThanMb] = "less than 1 MB",
+
+        [Keys.Sel.DenyMedia] = "This is the Windows Peace boot media - installation here is impossible",
+        [Keys.Sel.DenySystem] = "The current system runs on this disk",
+        [Keys.Sel.DenyOffline] = "The disk is offline",
+        [Keys.Sel.DenyReadOnly] = "The disk is write-protected",
+        [Keys.Sel.DenyService] = "This is a service partition; the system creates it itself",
+        [Keys.Sel.DenyUnknownTarget] = "Unknown target kind",
+        [Keys.Sel.TooSmall] = "Not enough space: {0} GB short of the minimum 40 GB",
+
+        [Keys.Warn.WindowsOnTarget] = "Windows is installed on the target. It will be deleted permanently.",
+        [Keys.Warn.UserFilesOnTarget] = "The target has user files. They will be deleted permanently.",
+        [Keys.Warn.PartitionsNotRead] = "This disk's partitions could not be read, so its contents are unknown.",
+        [Keys.Warn.ContentNotInspected] = "Some partitions could not be inspected: they have no drive letter.",
+        [Keys.Warn.WeakIdentity] = "The disk's serial number could not be read; it cannot be identified reliably.",
+        [Keys.Warn.OtherWindows] = "Windows was found on another disk. It may hijack booting.",
     };
 }
