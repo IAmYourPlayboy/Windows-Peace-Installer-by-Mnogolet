@@ -10,5 +10,8 @@ public sealed class EnglishStrings : ILanguagePack
     {
         [Keys.Common.Next] = "Next",
         [Keys.Language.Title] = "Select language",
+
+        [Keys.Shell.Back] = "Back",
+        [Keys.Shell.Exit] = "Exit installer",
     };
 }

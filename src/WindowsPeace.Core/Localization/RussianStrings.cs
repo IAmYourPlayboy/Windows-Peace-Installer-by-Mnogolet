@@ -10,5 +10,8 @@ public sealed class RussianStrings : ILanguagePack
     {
         [Keys.Common.Next] = "Далее",
         [Keys.Language.Title] = "Выберите язык",
+
+        [Keys.Shell.Back] = "Назад",
+        [Keys.Shell.Exit] = "Выйти из установщика",
     };
 }
