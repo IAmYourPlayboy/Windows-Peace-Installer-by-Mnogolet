@@ -31,6 +31,12 @@ public sealed class LanguageViewModel : ViewModelBase, IWizardPage
         public Language Language { get; }
 
         public string NativeLabel { get; }
+
+        // Средствам доступности строка обязана называть себя по-человечески,
+        // а не именем класса: иначе экранный диктор читает вслух
+        // «...LanguageViewModel+LanguageOption». Тот же дефект уже ловили
+        // на строках рецептов и дисков — здесь его нашёл стенд на английском.
+        public override string ToString() => NativeLabel;
     }
 
     private LanguageOption? _selected;
