@@ -98,6 +98,14 @@ public static class Keys
         public const string WindowsAndFiles = "content.windowsAndFiles";
         public const string Windows = "content.windows";
         public const string UserFiles = "content.userFiles";
+
+        public static class NotInspected
+        {
+            public const string Cancelled = "content.notInspected.cancelled";
+            public const string Service = "content.notInspected.service";
+            public const string NoLetter = "content.notInspected.noLetter";
+            public const string Pending = "content.notInspected.pending";
+        }
     }
 
     public static class Size
@@ -132,5 +140,10 @@ public static class Keys
     {
         public const string Recovery = "plan.recovery";
         public const string SingleTail = "plan.singleTail";
+    }
+
+    public static class Layout
+    {
+        public const string ReadFailed = "layout.readFailed";
     }
 }

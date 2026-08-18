@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Storage;
 
@@ -24,7 +25,8 @@ public sealed class FileSystemContentInspector : IDiskContentInspector
         {
             if (cancellationToken.IsCancellationRequested)
             {
-                partition.Content = PartitionContent.NotInspected("Проверка прервана");
+                partition.Content = PartitionContent.NotInspected(
+                    CoreLocalization.Localization.Current[CoreLocalization.Keys.Content.NotInspected.Cancelled]);
                 continue;
             }
 
@@ -36,12 +38,14 @@ public sealed class FileSystemContentInspector : IDiskContentInspector
     {
         if (PartitionKinds.IsSystemService(partition.Kind))
         {
-            return PartitionContent.NotInspected("Служебный раздел, содержимое не проверяется");
+            return PartitionContent.NotInspected(
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Content.NotInspected.Service]);
         }
 
         if (partition.DriveLetter is null)
         {
-            return PartitionContent.NotInspected("У раздела нет буквы диска");
+            return PartitionContent.NotInspected(
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Content.NotInspected.NoLetter]);
         }
 
         var root = string.Format(CultureInfo.InvariantCulture, "{0}:\\", partition.DriveLetter.Value);

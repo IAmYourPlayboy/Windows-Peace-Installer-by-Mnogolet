@@ -92,6 +92,11 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Content.Windows] = "Windows",
         [Keys.Content.UserFiles] = "User files",
 
+        [Keys.Content.NotInspected.Cancelled] = "Inspection cancelled",
+        [Keys.Content.NotInspected.Service] = "Service partition; contents are not inspected",
+        [Keys.Content.NotInspected.NoLetter] = "The partition has no drive letter",
+        [Keys.Content.NotInspected.Pending] = "Contents not inspected yet",
+
         [Keys.Size.Gb] = "GB",
         [Keys.Size.Mb] = "MB",
         [Keys.Size.LessThanMb] = "less than 1 MB",
@@ -113,5 +118,7 @@ public sealed class EnglishStrings : ILanguagePack
 
         [Keys.Plan.Recovery] = "Recovery",
         [Keys.Plan.SingleTail] = ". Other partitions are unchanged.",
+
+        [Keys.Layout.ReadFailed] = "Could not read the layout, error code {0}",
     };
 }

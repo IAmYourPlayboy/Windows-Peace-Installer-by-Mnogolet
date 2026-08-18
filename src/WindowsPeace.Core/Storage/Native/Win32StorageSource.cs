@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Storage.Native;
 
@@ -314,7 +315,10 @@ public sealed class Win32StorageSource : IRawStorageSource
             }
 
             return new Layout(PartitionStyle.Unknown, null, new List<RawPartition>(),
-                "Разметку прочитать не удалось, код ошибки " + error.ToString(CultureInfo.InvariantCulture));
+                string.Format(
+                    CultureInfo.CurrentCulture,
+                    CoreLocalization.Localization.Current[CoreLocalization.Keys.Layout.ReadFailed],
+                    error));
         }
 
         if (returned < 48)

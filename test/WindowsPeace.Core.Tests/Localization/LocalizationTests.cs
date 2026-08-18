@@ -1,3 +1,4 @@
+using System.Globalization;
 using WindowsPeace.Core.Localization;
 using Xunit;
 
@@ -37,5 +38,23 @@ public class LocalizationTests
         loc.LanguageChanged += (_, _) => count++;
         loc.Language = Language.Russian;
         Assert.Equal(0, count);
+    }
+
+    /// <summary>
+    /// Win32StorageSource читает разметку через DeviceIoControl и юнит-тестом
+    /// не покрывается (нужен настоящий диск). Здесь проверяется только контракт
+    /// перевода: слово переводится, код ошибки остаётся числом — так же, как
+    /// собирает строку сам источник, string.Format(CultureInfo.CurrentCulture, ...).
+    /// </summary>
+    [Fact] public void Префикс_ошибки_разметки_переводится_код_остаётся_числом()
+    {
+        var loc = new WindowsPeace.Core.Localization.Localization();
+
+        var ru = string.Format(CultureInfo.CurrentCulture, loc[Keys.Layout.ReadFailed], 5);
+        Assert.Equal("Разметку прочитать не удалось, код ошибки 5", ru);
+
+        loc.Language = Language.English;
+        var en = string.Format(CultureInfo.CurrentCulture, loc[Keys.Layout.ReadFailed], 5);
+        Assert.Equal("Could not read the layout, error code 5", en);
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using WindowsPeace.Core.Storage;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Tests;
 
@@ -35,6 +36,7 @@ internal sealed class FakeFileSystem : IFileSystemProbe
             .ToList();
 }
 
+[Collection(LocalizationCollection.Name)]
 public class ContentInspectorTests
 {
     private static DiskInfo DiskWith(PartitionInfo partition) => TestDisks.Disk(partitions: new[] { partition });
@@ -164,5 +166,34 @@ public class ContentInspectorTests
         BootMediaLocator.Mark(new[] { disk }, new FakeFileSystem());
 
         Assert.False(disk.IsWindowsPeaceMedia);
+    }
+
+    [Fact]
+    public void Причины_непроверенного_содержимого_переводятся_на_английский()
+    {
+        CoreLocalization.Localization.Current.Language = CoreLocalization.Language.English;
+        try
+        {
+            var freshPartition = TestDisks.Partition();
+            Assert.Equal("Contents not inspected yet", freshPartition.Content.NotInspectedReason);
+
+            var noLetter = TestDisks.Partition(letter: null);
+            new FileSystemContentInspector(new FakeFileSystem()).Inspect(DiskWith(noLetter), CancellationToken.None);
+            Assert.Equal("The partition has no drive letter", noLetter.Content.NotInspectedReason);
+
+            var service = TestDisks.Partition(letter: 'S', kind: PartitionKind.EfiSystem);
+            new FileSystemContentInspector(new FakeFileSystem()).Inspect(DiskWith(service), CancellationToken.None);
+            Assert.Equal("Service partition; contents are not inspected", service.Content.NotInspectedReason);
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            var cancelled = TestDisks.Partition(letter: 'C');
+            new FileSystemContentInspector(new FakeFileSystem()).Inspect(DiskWith(cancelled), cts.Token);
+            Assert.Equal("Inspection cancelled", cancelled.Content.NotInspectedReason);
+        }
+        finally
+        {
+            CoreLocalization.Localization.Current.Language = CoreLocalization.Language.Russian;
+        }
     }
 }

@@ -92,6 +92,11 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Content.Windows] = "Windows",
         [Keys.Content.UserFiles] = "Файлы пользователя",
 
+        [Keys.Content.NotInspected.Cancelled] = "Проверка прервана",
+        [Keys.Content.NotInspected.Service] = "Служебный раздел, содержимое не проверяется",
+        [Keys.Content.NotInspected.NoLetter] = "У раздела нет буквы диска",
+        [Keys.Content.NotInspected.Pending] = "Содержимое ещё не проверялось",
+
         [Keys.Size.Gb] = "ГБ",
         [Keys.Size.Mb] = "МБ",
         [Keys.Size.LessThanMb] = "менее 1 МБ",
@@ -113,5 +118,7 @@ public sealed class RussianStrings : ILanguagePack
 
         [Keys.Plan.Recovery] = "Восстановление",
         [Keys.Plan.SingleTail] = ". Остальные разделы не изменяются.",
+
+        [Keys.Layout.ReadFailed] = "Разметку прочитать не удалось, код ошибки {0}",
     };
 }
