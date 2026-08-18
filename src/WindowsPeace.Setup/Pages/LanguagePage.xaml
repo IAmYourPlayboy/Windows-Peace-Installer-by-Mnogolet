@@ -10,9 +10,15 @@
         <ListView ItemsSource="{Binding Options}"
                   SelectedItem="{Binding Selected, Mode=TwoWay}"
                   IsSynchronizedWithCurrentItem="False">
+            <!--
+                Заголовка у столбца нет: язык интерфейса ещё не выбран, а заголовок
+                экрана сверху и подписи строк «Русский»/«English» и так называют,
+                что здесь выбирают. Слово на одном языке до выбора было бы враньём
+                по той же причине, по которой кнопка приветствия двуязычна.
+            -->
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Язык" Width="200" DisplayMemberBinding="{Binding NativeLabel}" />
+                    <GridViewColumn Width="200" DisplayMemberBinding="{Binding NativeLabel}" />
                 </GridView>
             </ListView.View>
         </ListView>
