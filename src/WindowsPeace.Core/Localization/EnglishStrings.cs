@@ -91,5 +91,9 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Content.WindowsAndFiles] = "Windows and user files",
         [Keys.Content.Windows] = "Windows",
         [Keys.Content.UserFiles] = "User files",
+
+        [Keys.Size.Gb] = "GB",
+        [Keys.Size.Mb] = "MB",
+        [Keys.Size.LessThanMb] = "less than 1 MB",
     };
 }

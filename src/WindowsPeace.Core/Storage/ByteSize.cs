@@ -1,4 +1,5 @@
 using System.Globalization;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Storage;
 
@@ -29,14 +30,16 @@ public static class ByteSize
     {
         if (bytes >= Gib)
         {
-            return ((double)bytes / Gib).ToString("0.#", CultureInfo.CurrentCulture) + " ГБ";
+            return ((double)bytes / Gib).ToString("0.#", CultureInfo.CurrentCulture) + " " +
+                   CoreLocalization.Localization.Current[CoreLocalization.Keys.Size.Gb];
         }
 
         if (bytes > 0 && bytes < Mib)
         {
-            return "менее 1 МБ";
+            return CoreLocalization.Localization.Current[CoreLocalization.Keys.Size.LessThanMb];
         }
 
-        return (bytes / Mib).ToString(CultureInfo.CurrentCulture) + " МБ";
+        return (bytes / Mib).ToString(CultureInfo.CurrentCulture) + " " +
+               CoreLocalization.Localization.Current[CoreLocalization.Keys.Size.Mb];
     }
 }

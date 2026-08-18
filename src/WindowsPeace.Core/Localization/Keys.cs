@@ -99,4 +99,11 @@ public static class Keys
         public const string Windows = "content.windows";
         public const string UserFiles = "content.userFiles";
     }
+
+    public static class Size
+    {
+        public const string Gb = "size.gb";
+        public const string Mb = "size.mb";
+        public const string LessThanMb = "size.lessThanMb";
+    }
 }

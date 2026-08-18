@@ -91,5 +91,9 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Content.WindowsAndFiles] = "Windows и файлы пользователя",
         [Keys.Content.Windows] = "Windows",
         [Keys.Content.UserFiles] = "Файлы пользователя",
+
+        [Keys.Size.Gb] = "ГБ",
+        [Keys.Size.Mb] = "МБ",
+        [Keys.Size.LessThanMb] = "менее 1 МБ",
     };
 }

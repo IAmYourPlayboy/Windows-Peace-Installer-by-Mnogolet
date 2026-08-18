@@ -1,9 +1,11 @@
 using System.Globalization;
 using WindowsPeace.Core.Storage;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Tests;
 
+[Collection(LocalizationCollection.Name)]
 public class ByteSizeTests
 {
     private const ulong Mib = 1024UL * 1024UL;
@@ -64,5 +66,21 @@ public class ByteSizeTests
     public void Разделитель_берётся_из_языка_системы()
     {
         Assert.Equal("476.9 ГБ", InCulture("en-US", 512_110_190_592UL));
+    }
+
+    [Fact]
+    public void Единицы_переводятся_на_английский()
+    {
+        CoreLocalization.Localization.Current.Language = CoreLocalization.Language.English;
+        try
+        {
+            Assert.Equal("500 GB", InCulture("en-US", 500 * Gib));
+            Assert.Equal("300 MB", InCulture("en-US", 300 * Mib));
+            Assert.Equal("less than 1 MB", InCulture("en-US", 1UL));
+        }
+        finally
+        {
+            CoreLocalization.Localization.Current.Language = CoreLocalization.Language.Russian;
+        }
     }
 }

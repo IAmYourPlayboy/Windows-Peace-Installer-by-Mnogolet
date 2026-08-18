@@ -9,6 +9,7 @@ namespace WindowsPeace.Core.Tests;
 /// Разойдясь, эти два описания читались бы как два разных диска — а человек
 /// в этот момент решает, что стирать.
 /// </summary>
+[Collection(LocalizationCollection.Name)]
 public class DiskDescriptionTests
 {
     [Fact]
