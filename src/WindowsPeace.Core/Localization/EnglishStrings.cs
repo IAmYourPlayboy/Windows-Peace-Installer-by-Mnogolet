@@ -110,5 +110,8 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Warn.ContentNotInspected] = "Some partitions could not be inspected: they have no drive letter.",
         [Keys.Warn.WeakIdentity] = "The disk's serial number could not be read; it cannot be identified reliably.",
         [Keys.Warn.OtherWindows] = "Windows was found on another disk. It may hijack booting.",
+
+        [Keys.Plan.Recovery] = "Recovery",
+        [Keys.Plan.SingleTail] = ". Other partitions are unchanged.",
     };
 }

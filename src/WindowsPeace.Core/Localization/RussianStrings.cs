@@ -110,5 +110,8 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Warn.ContentNotInspected] = "Содержимое части разделов проверить не удалось: у них нет буквы диска.",
         [Keys.Warn.WeakIdentity] = "У диска не удалось прочитать серийный номер, опознать его надёжно нельзя.",
         [Keys.Warn.OtherWindows] = "На другом диске найдена установленная Windows. Она может перехватывать загрузку.",
+
+        [Keys.Plan.Recovery] = "Восстановление",
+        [Keys.Plan.SingleTail] = ". Остальные разделы не изменяются.",
     };
 }

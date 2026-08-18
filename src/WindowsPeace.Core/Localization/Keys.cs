@@ -127,4 +127,10 @@ public static class Keys
         public const string WeakIdentity = "warn.weakIdentity";
         public const string OtherWindows = "warn.otherWindows";
     }
+
+    public static class Plan
+    {
+        public const string Recovery = "plan.recovery";
+        public const string SingleTail = "plan.singleTail";
+    }
 }

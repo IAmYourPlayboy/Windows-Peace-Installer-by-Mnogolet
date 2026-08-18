@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using WindowsPeace.Core.Storage;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Core.Selection;
 
@@ -28,7 +29,8 @@ public static class DeploymentPlanner
             new(PartitionKind.EfiSystem, "EFI", esp),
             new(PartitionKind.MicrosoftReserved, "MSR", msr),
             new(PartitionKind.BasicData, "Windows", windows),
-            new(PartitionKind.WindowsRecovery, "Восстановление", recovery),
+            new(PartitionKind.WindowsRecovery,
+                CoreLocalization.Localization.Current[CoreLocalization.Keys.Plan.Recovery], recovery),
         };
 
         return new DeploymentPlan(steps, wipesWholeDisk: true, summary: Summarize(steps));
@@ -42,7 +44,8 @@ public static class DeploymentPlanner
         };
 
         return new DeploymentPlan(steps, wipesWholeDisk: false,
-            summary: "Windows " + ByteSize.Format(target.AvailableBytes) + ". Остальные разделы не изменяются.");
+            summary: "Windows " + ByteSize.Format(target.AvailableBytes) +
+                     CoreLocalization.Localization.Current[CoreLocalization.Keys.Plan.SingleTail]);
     }
 
     private static string Summarize(IEnumerable<PlanStep> steps)
