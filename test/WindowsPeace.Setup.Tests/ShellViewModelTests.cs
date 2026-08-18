@@ -46,6 +46,7 @@ internal sealed class NoWayBackPage : IWizardPage
     }
 }
 
+[Collection(LocalizationCollection.Name)]
 public class ShellViewModelTests
 {
     private static ShellViewModel Shell(params IWizardPage[] pages)

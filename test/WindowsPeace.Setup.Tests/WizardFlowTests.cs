@@ -5,6 +5,7 @@ using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Tests;
 
+[Collection(LocalizationCollection.Name)]
 public class WizardFlowTests
 {
     /// <summary>

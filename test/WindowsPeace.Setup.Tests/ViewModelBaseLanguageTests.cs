@@ -5,6 +5,7 @@ using Xunit;
 
 namespace WindowsPeace.Setup.Tests;
 
+[Collection(LocalizationCollection.Name)]
 public class ViewModelBaseLanguageTests
 {
     private sealed class Probe : ViewModelBase { }
