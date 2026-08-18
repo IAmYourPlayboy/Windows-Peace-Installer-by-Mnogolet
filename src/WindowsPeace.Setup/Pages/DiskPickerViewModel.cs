@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +9,9 @@ using WindowsPeace.Core.Diagnostics;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Infrastructure;
 using WindowsPeace.Setup.Shell;
+using CoreLocalization = WindowsPeace.Core.Localization;
+using Language = WindowsPeace.Core.Localization.Language;
+using Keys = WindowsPeace.Core.Localization.Keys;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -36,6 +40,13 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
     private IReadOnlyList<DiskInfo> _disks = Array.Empty<DiskInfo>();
 
     /// <summary>
+    /// Язык, на котором собран текущий список строк. Строки-диски читают
+    /// <c>Localization</c> в момент сборки (<see cref="BuildRows"/>) и застывают
+    /// на этом языке; смену подхватывает только <see cref="OnEnter"/>.
+    /// </summary>
+    private Language _builtLanguage = CoreLocalization.Localization.Current.Language;
+
+    /// <summary>
     /// Дети каждой строки-диска — разделы и незанятое место. Держим их отдельно,
     /// чтобы сворачивать диск, убирая детей из списка и возвращая обратно.
     /// </summary>
@@ -51,7 +62,7 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
         CancelCommand = new RelayCommand(Cancel, () => IsBusy);
     }
 
-    public string Title => "Куда установить Windows?";
+    public string Title => CoreLocalization.Localization.Current[Keys.Disk.Title];
 
     public ObservableCollection<DiskRowViewModel> Rows { get; } = new();
 
@@ -126,6 +137,19 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
 
     public void OnEnter()
     {
+        // Строки-диски застыли на языке сборки (BuildRows читает Localization
+        // один раз). Если язык сменился, пока экрана не было видно, — список
+        // не может просто перещёлкнуть текст, как обычные свойства: его нужно
+        // собрать заново.
+        if (CoreLocalization.Localization.Current.Language != _builtLanguage && !IsBusy)
+        {
+            _builtLanguage = CoreLocalization.Localization.Current.Language;
+            // Намеренно без ожидания: вход на страницу не должен блокировать
+            // оболочку. RefreshAsync не выпускает исключений наружу.
+            _ = RefreshAsync();
+            return;
+        }
+
         if (Rows.Count == 0 && EnumerationError is null && !IsBusy)
         {
             // Намеренно без ожидания: вход на страницу не должен блокировать
@@ -190,7 +214,7 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
         _children.Clear();
         Selected = null;
         EnumerationError = null;
-        StatusText = "Опрашиваю диски…";
+        StatusText = CoreLocalization.Localization.Current[Keys.Disk.StatusEnumerating];
 
         var progress = new Progress<string>(text => StatusText = text);
 
@@ -202,11 +226,14 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
             _disks = snapshot.Disks;
 
             BuildRows();
+            // Список только что собран на текущем языке — запоминаем его,
+            // чтобы OnEnter не перестраивал список зря при следующем входе.
+            _builtLanguage = CoreLocalization.Localization.Current.Language;
         }
         catch (OperationCanceledException)
         {
             _disks = Array.Empty<DiskInfo>();
-            EnumerationError = "Опрос дисков прерван. Нажмите «Обновить», чтобы попробовать снова.";
+            EnumerationError = CoreLocalization.Localization.Current[Keys.Disk.ErrorCancelled];
         }
         finally
         {
@@ -234,12 +261,15 @@ public sealed class DiskPickerViewModel : ViewModelBase, IWizardPage
             token.ThrowIfCancellationRequested();
 
             index++;
-            progress.Report($"Смотрю, что лежит на диске {index} из {snapshot.Disks.Count}…");
+            progress.Report(string.Format(
+                CultureInfo.CurrentCulture,
+                CoreLocalization.Localization.Current[Keys.Disk.StatusInspecting],
+                index, snapshot.Disks.Count));
             _inspector.Inspect(disk, token);
         }
 
         token.ThrowIfCancellationRequested();
-        progress.Report("Ищу загрузочный носитель…");
+        progress.Report(CoreLocalization.Localization.Current[Keys.Disk.StatusLocating]);
 
         // Отметка носителя ставится до построения строк: от неё зависит вердикт,
         // а вердикт вычисляется в конструкторе строки.

@@ -55,5 +55,41 @@ public sealed class RussianStrings : ILanguagePack
         [Keys.Error.Body] =
             "Windows Peace не смог продолжить работу и сейчас закроется." + Environment.NewLine + Environment.NewLine +
             "Разбираться с этим нам, а не вам: что случилось, записано в журнал работы.",
+
+        [Keys.Disk.Title] = "Куда установить Windows Peace?",
+        [Keys.Disk.ColName] = "Имя",
+        [Keys.Disk.ColSize] = "Объём",
+        [Keys.Disk.ColFree] = "Свободно",
+        [Keys.Disk.ColType] = "Тип",
+        [Keys.Disk.ColState] = "Состояние",
+        [Keys.Disk.Refresh] = "Обновить",
+        [Keys.Disk.Cancel] = "Прервать",
+        [Keys.Disk.Create] = "Создать",
+        [Keys.Disk.Delete] = "Удалить",
+        [Keys.Disk.Format] = "Форматировать",
+        [Keys.Disk.Extend] = "Расширить",
+        [Keys.Disk.Details] = "Подробно",
+        [Keys.Disk.LoadDriver] = "Загрузить драйвер",
+        [Keys.Disk.StatusEnumerating] = "Опрашиваю диски…",
+        [Keys.Disk.StatusInspecting] = "Смотрю, что лежит на диске {0} из {1}…",
+        [Keys.Disk.StatusLocating] = "Ищу загрузочный носитель…",
+        [Keys.Disk.ErrorCancelled] = "Опрос дисков прерван. Нажмите «Обновить», чтобы попробовать снова.",
+        [Keys.Disk.FreeSpace] = "Незанятое пространство",
+        [Keys.Disk.Partition] = "Раздел {0}",
+        [Keys.Disk.PartitionLabel] = "Раздел {0}: {1}",
+        [Keys.Disk.NoteMedia] = "Загрузочный носитель - установка сюда невозможна",
+        [Keys.Disk.NoteSystem] = "Здесь работает текущая система",
+        [Keys.Disk.NoteEmpty] = "Пустой",
+        [Keys.Disk.NotePartitions] = "Разделов: {0}",
+
+        [Keys.PartitionType.Efi] = "Системный EFI",
+        [Keys.PartitionType.Msr] = "MSR",
+        [Keys.PartitionType.Recovery] = "Восстановление",
+        [Keys.PartitionType.Basic] = "Основной",
+        [Keys.PartitionType.Unknown] = "Неизвестный",
+
+        [Keys.Content.WindowsAndFiles] = "Windows и файлы пользователя",
+        [Keys.Content.Windows] = "Windows",
+        [Keys.Content.UserFiles] = "Файлы пользователя",
     };
 }

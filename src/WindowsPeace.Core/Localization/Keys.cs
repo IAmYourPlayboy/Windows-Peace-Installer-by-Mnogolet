@@ -54,4 +54,49 @@ public static class Keys
         public const string Title = "error.title";
         public const string Body = "error.body";
     }
+
+    public static class Disk
+    {
+        public const string Title = "disk.title";
+        public const string ColName = "disk.col.name";
+        public const string ColSize = "disk.col.size";
+        public const string ColFree = "disk.col.free";
+        public const string ColType = "disk.col.type";
+        public const string ColState = "disk.col.state";
+        public const string Refresh = "disk.refresh";
+        public const string Cancel = "disk.cancel";
+        public const string Create = "disk.create";
+        public const string Delete = "disk.delete";
+        public const string Format = "disk.format";
+        public const string Extend = "disk.extend";
+        public const string Details = "disk.details";
+        public const string LoadDriver = "disk.loadDriver";
+        public const string StatusEnumerating = "disk.status.enumerating";
+        public const string StatusInspecting = "disk.status.inspecting";
+        public const string StatusLocating = "disk.status.locating";
+        public const string ErrorCancelled = "disk.error.cancelled";
+        public const string FreeSpace = "disk.freeSpace";
+        public const string Partition = "disk.partition";
+        public const string PartitionLabel = "disk.partitionLabel";
+        public const string NoteMedia = "disk.note.media";
+        public const string NoteSystem = "disk.note.system";
+        public const string NoteEmpty = "disk.note.empty";
+        public const string NotePartitions = "disk.note.partitions";
+    }
+
+    public static class PartitionType
+    {
+        public const string Efi = "parttype.efi";
+        public const string Msr = "parttype.msr";
+        public const string Recovery = "parttype.recovery";
+        public const string Basic = "parttype.basic";
+        public const string Unknown = "parttype.unknown";
+    }
+
+    public static class Content
+    {
+        public const string WindowsAndFiles = "content.windowsAndFiles";
+        public const string Windows = "content.windows";
+        public const string UserFiles = "content.userFiles";
+    }
 }

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Pages;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Tests;
 
@@ -59,6 +60,7 @@ internal sealed class EmptyFileSystem : IFileSystemProbe
     public IReadOnlyList<string> EnumerateDirectories(string path) => Array.Empty<string>();
 }
 
+[Collection(LocalizationCollection.Name)]
 public class DiskPickerViewModelTests
 {
     private const ulong Gib = TestDisks.Gib;
@@ -276,5 +278,67 @@ public class DiskPickerViewModelTests
         await running;
 
         Assert.Equal(string.Empty, model.StatusText);
+    }
+
+    /// <summary>Ждёт, пока опрос (запущенный, например, из OnEnter) закончится.</summary>
+    private static async Task WaitUntilIdle(DiskPickerViewModel model)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (model.IsBusy && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+    }
+
+    [Fact]
+    public async Task Заголовок_и_описания_строк_на_английском()
+    {
+        CoreLocalization.Localization.Current.Language = CoreLocalization.Language.English;
+        try
+        {
+            var model = await CreateAsync(Disk("A", 500 * Gib, isSystem: true));
+
+            Assert.Equal("Where to install Windows Peace?", model.Title);
+            Assert.Contains(model.Rows, r => r.Kind == RowKind.FreeSpace && r.Name == "Unallocated space");
+            Assert.Contains(model.Rows, r => r.Kind == RowKind.Disk && r.Note == "The current system runs here");
+        }
+        finally
+        {
+            CoreLocalization.Localization.Current.Language = CoreLocalization.Language.Russian; // вернуть для соседних тестов
+        }
+    }
+
+    [Fact]
+    public async Task Заголовок_и_описания_строк_на_русском()
+    {
+        var model = await CreateAsync(Disk("A", 500 * Gib, isSystem: true));
+
+        Assert.Equal("Куда установить Windows Peace?", model.Title);
+        Assert.Contains(model.Rows, r => r.Kind == RowKind.FreeSpace && r.Name == "Незанятое пространство");
+        Assert.Contains(model.Rows, r => r.Kind == RowKind.Disk && r.Note == "Здесь работает текущая система");
+    }
+
+    /// <summary>
+    /// Строки-диски собираются заранее и застывают на языке сборки. Смену языка,
+    /// пока экрана не видно, подхватывает OnEnter — он перестраивает список.
+    /// </summary>
+    [Fact]
+    public async Task Смена_языка_перестраивает_список_при_входе_на_экран()
+    {
+        try
+        {
+            var model = await CreateAsync(Disk("A", 500 * Gib));
+            Assert.Contains(model.Rows, r => r.Kind == RowKind.FreeSpace && r.Name == "Незанятое пространство");
+
+            CoreLocalization.Localization.Current.Language = CoreLocalization.Language.English;
+            model.OnEnter();
+            await WaitUntilIdle(model);
+
+            Assert.Contains(model.Rows, r => r.Kind == RowKind.FreeSpace && r.Name == "Unallocated space");
+        }
+        finally
+        {
+            CoreLocalization.Localization.Current.Language = CoreLocalization.Language.Russian; // вернуть для соседних тестов
+        }
     }
 }

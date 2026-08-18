@@ -2,6 +2,8 @@
 using WindowsPeace.Core.Selection;
 using WindowsPeace.Core.Storage;
 using WindowsPeace.Setup.Infrastructure;
+using CoreLocalization = WindowsPeace.Core.Localization;
+using Keys = WindowsPeace.Core.Localization.Keys;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -109,42 +111,42 @@ public sealed class DiskRowViewModel : ViewModelBase
 
     public static DiskRowViewModel ForFreeSpace(DiskInfo disk, FreeSpaceInfo freeSpace)
         => new(RowKind.FreeSpace, SelectionTarget.ForFreeSpace(disk, freeSpace),
-            "Незанятое пространство", ByteSize.Format(freeSpace.Size), string.Empty, "-", string.Empty);
+            CoreLocalization.Localization.Current[Keys.Disk.FreeSpace], ByteSize.Format(freeSpace.Size), string.Empty, "-", string.Empty);
 
     private static string DescribePartitionName(PartitionInfo partition)
     {
         var label = partition.Volume?.Label;
         var letter = partition.DriveLetter is null ? string.Empty : " (" + partition.DriveLetter + ":)";
         var name = string.IsNullOrWhiteSpace(label)
-            ? string.Format(CultureInfo.CurrentCulture, "Раздел {0}", partition.Number)
-            : string.Format(CultureInfo.CurrentCulture, "Раздел {0}: {1}", partition.Number, label);
+            ? string.Format(CultureInfo.CurrentCulture, CoreLocalization.Localization.Current[Keys.Disk.Partition], partition.Number)
+            : string.Format(CultureInfo.CurrentCulture, CoreLocalization.Localization.Current[Keys.Disk.PartitionLabel], partition.Number, label);
         return name + letter;
     }
 
     private static string DescribeKind(PartitionKind kind) => kind switch
     {
-        PartitionKind.EfiSystem => "Системный EFI",
-        PartitionKind.MicrosoftReserved => "MSR",
-        PartitionKind.WindowsRecovery => "Восстановление",
-        PartitionKind.BasicData => "Основной",
-        _ => "Неизвестный",
+        PartitionKind.EfiSystem => CoreLocalization.Localization.Current[Keys.PartitionType.Efi],
+        PartitionKind.MicrosoftReserved => CoreLocalization.Localization.Current[Keys.PartitionType.Msr],
+        PartitionKind.WindowsRecovery => CoreLocalization.Localization.Current[Keys.PartitionType.Recovery],
+        PartitionKind.BasicData => CoreLocalization.Localization.Current[Keys.PartitionType.Basic],
+        _ => CoreLocalization.Localization.Current[Keys.PartitionType.Unknown],
     };
 
     private static string DescribeDisk(DiskInfo disk)
     {
-        if (disk.IsWindowsPeaceMedia) return "Загрузочный носитель - установка сюда невозможна";
-        if (disk.IsSystem || disk.IsBoot) return "Здесь работает текущая система";
+        if (disk.IsWindowsPeaceMedia) return CoreLocalization.Localization.Current[Keys.Disk.NoteMedia];
+        if (disk.IsSystem || disk.IsBoot) return CoreLocalization.Localization.Current[Keys.Disk.NoteSystem];
         if (disk.ProbeError is not null) return disk.ProbeError;
-        if (disk.Partitions.Count == 0) return "Пустой";
-        return string.Format(CultureInfo.CurrentCulture, "Разделов: {0}", disk.Partitions.Count);
+        if (disk.Partitions.Count == 0) return CoreLocalization.Localization.Current[Keys.Disk.NoteEmpty];
+        return string.Format(CultureInfo.CurrentCulture, CoreLocalization.Localization.Current[Keys.Disk.NotePartitions], disk.Partitions.Count);
     }
 
     private static string DescribeContent(PartitionInfo partition)
     {
         if (!partition.Content.Inspected) return partition.Content.NotInspectedReason ?? string.Empty;
-        if (partition.Content.WindowsFound && partition.Content.UserFilesFound) return "Windows и файлы пользователя";
-        if (partition.Content.WindowsFound) return "Windows";
-        if (partition.Content.UserFilesFound) return "Файлы пользователя";
+        if (partition.Content.WindowsFound && partition.Content.UserFilesFound) return CoreLocalization.Localization.Current[Keys.Content.WindowsAndFiles];
+        if (partition.Content.WindowsFound) return CoreLocalization.Localization.Current[Keys.Content.Windows];
+        if (partition.Content.UserFilesFound) return CoreLocalization.Localization.Current[Keys.Content.UserFiles];
         return string.Empty;
     }
 

@@ -55,5 +55,41 @@ public sealed class EnglishStrings : ILanguagePack
         [Keys.Error.Body] =
             "Windows Peace could not continue and will now close." + Environment.NewLine + Environment.NewLine +
             "This is ours to sort out, not yours: what happened is recorded in the work log.",
+
+        [Keys.Disk.Title] = "Where to install Windows Peace?",
+        [Keys.Disk.ColName] = "Name",
+        [Keys.Disk.ColSize] = "Size",
+        [Keys.Disk.ColFree] = "Free",
+        [Keys.Disk.ColType] = "Type",
+        [Keys.Disk.ColState] = "State",
+        [Keys.Disk.Refresh] = "Refresh",
+        [Keys.Disk.Cancel] = "Stop",
+        [Keys.Disk.Create] = "Create",
+        [Keys.Disk.Delete] = "Delete",
+        [Keys.Disk.Format] = "Format",
+        [Keys.Disk.Extend] = "Extend",
+        [Keys.Disk.Details] = "Details",
+        [Keys.Disk.LoadDriver] = "Load driver",
+        [Keys.Disk.StatusEnumerating] = "Scanning disks…",
+        [Keys.Disk.StatusInspecting] = "Inspecting disk {0} of {1}…",
+        [Keys.Disk.StatusLocating] = "Looking for boot media…",
+        [Keys.Disk.ErrorCancelled] = "Disk scan stopped. Press \"Refresh\" to try again.",
+        [Keys.Disk.FreeSpace] = "Unallocated space",
+        [Keys.Disk.Partition] = "Partition {0}",
+        [Keys.Disk.PartitionLabel] = "Partition {0}: {1}",
+        [Keys.Disk.NoteMedia] = "Boot media - cannot install here",
+        [Keys.Disk.NoteSystem] = "The current system runs here",
+        [Keys.Disk.NoteEmpty] = "Empty",
+        [Keys.Disk.NotePartitions] = "Partitions: {0}",
+
+        [Keys.PartitionType.Efi] = "EFI system",
+        [Keys.PartitionType.Msr] = "MSR",
+        [Keys.PartitionType.Recovery] = "Recovery",
+        [Keys.PartitionType.Basic] = "Basic",
+        [Keys.PartitionType.Unknown] = "Unknown",
+
+        [Keys.Content.WindowsAndFiles] = "Windows and user files",
+        [Keys.Content.Windows] = "Windows",
+        [Keys.Content.UserFiles] = "User files",
     };
 }

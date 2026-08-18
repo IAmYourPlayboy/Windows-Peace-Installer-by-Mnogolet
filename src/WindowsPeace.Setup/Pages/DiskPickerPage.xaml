@@ -1,6 +1,7 @@
 <UserControl x:Class="WindowsPeace.Setup.Pages.DiskPickerPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:WindowsPeace.Setup.Localization">
     <!-- Преобразователи BoolToVisibility и RemainingWidth лежат в App.xaml: они общие. -->
     <Grid>
         <Grid.RowDefinitions>
@@ -45,7 +46,7 @@
                         объяснение «почему на диск нельзя» ужимается и уезжает
                         за край - а этого нельзя ни при какой ширине окна.
                     -->
-                    <GridViewColumn Header="Имя" Width="268">
+                    <GridViewColumn Header="{loc:T disk.col.name}" Width="268">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
@@ -70,16 +71,16 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="Объём" Width="90" DisplayMemberBinding="{Binding Size}" />
-                    <GridViewColumn Header="Свободно" Width="98" DisplayMemberBinding="{Binding Free}" />
-                    <GridViewColumn Header="Тип" Width="118" DisplayMemberBinding="{Binding Type}" />
+                    <GridViewColumn Header="{loc:T disk.col.size}" Width="90" DisplayMemberBinding="{Binding Size}" />
+                    <GridViewColumn Header="{loc:T disk.col.free}" Width="98" DisplayMemberBinding="{Binding Free}" />
+                    <GridViewColumn Header="{loc:T disk.col.type}" Width="118" DisplayMemberBinding="{Binding Type}" />
 
                     <!--
                         Последний столбец занимает всё оставшееся место, а его текст
                         переносится по строкам. Здесь лежит объяснение, почему на диск
                         нельзя ставить, — обрезать его нельзя ни при какой ширине окна.
                     -->
-                    <GridViewColumn Header="Состояние">
+                    <GridViewColumn Header="{loc:T disk.col.state}">
                         <GridViewColumn.Width>
                             <MultiBinding Converter="{StaticResource RemainingWidth}">
                                 <Binding ElementName="DiskList" Path="ActualWidth" />
@@ -97,14 +98,14 @@
         </ListView>
 
         <WrapPanel Grid.Row="1" Margin="0,12,0,0">
-            <Button Content="Обновить" Command="{Binding RefreshCommand}" Margin="0,0,12,0" Padding="10,4" />
-            <Button Content="Прервать" Command="{Binding CancelCommand}" Margin="0,0,12,0" Padding="10,4" />
-            <Button Content="Создать" IsEnabled="{Binding CanCreate}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
-            <Button Content="Удалить" IsEnabled="{Binding CanDelete}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
-            <Button Content="Форматировать" IsEnabled="{Binding CanFormat}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
-            <Button Content="Расширить" IsEnabled="{Binding CanExtend}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
-            <Button Content="Подробно" IsEnabled="{Binding CanShowDetails}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
-            <Button Content="Загрузить драйвер" Padding="10,4" Click="NotYet" />
+            <Button Content="{loc:T disk.refresh}" Command="{Binding RefreshCommand}" Margin="0,0,12,0" Padding="10,4" />
+            <Button Content="{loc:T disk.cancel}" Command="{Binding CancelCommand}" Margin="0,0,12,0" Padding="10,4" />
+            <Button Content="{loc:T disk.create}" IsEnabled="{Binding CanCreate}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="{loc:T disk.delete}" IsEnabled="{Binding CanDelete}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="{loc:T disk.format}" IsEnabled="{Binding CanFormat}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="{loc:T disk.extend}" IsEnabled="{Binding CanExtend}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="{loc:T disk.details}" IsEnabled="{Binding CanShowDetails}" Margin="0,0,12,0" Padding="10,4" Click="NotYet" />
+            <Button Content="{loc:T disk.loadDriver}" Padding="10,4" Click="NotYet" />
         </WrapPanel>
 
         <!--
