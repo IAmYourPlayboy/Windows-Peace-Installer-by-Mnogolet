@@ -1,6 +1,7 @@
 using System;
 using WindowsPeace.Setup.Pages;
 using Xunit;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Tests;
 
@@ -9,6 +10,7 @@ namespace WindowsPeace.Setup.Tests;
 /// то, что от них требуется уже сейчас: честность и запрет вернуться назад,
 /// когда возвращаться уже некуда.
 /// </summary>
+[Collection(LocalizationCollection.Name)]
 public class LastPagesTests
 {
     [Fact]
@@ -50,5 +52,33 @@ public class LastPagesTests
         var page = new DoneViewModel();
 
         Assert.DoesNotContain("журнал", page.Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Заголовки и объяснения читаются ключами и говорят на выбранном языке.</summary>
+    [Fact]
+    public void Заголовки_и_объяснения_меняются_с_языком()
+    {
+        var loc = CoreLocalization.Localization.Current;
+        try
+        {
+            var progress = new ProgressViewModel();
+            var done = new DoneViewModel();
+
+            loc.Language = CoreLocalization.Language.Russian;
+            Assert.Equal("Установка", progress.Title);
+            Assert.Contains("не записывает", progress.Explanation, StringComparison.Ordinal);
+            Assert.Equal("Готово", done.Title);
+            Assert.Contains("итог установки", done.Explanation, StringComparison.Ordinal);
+
+            loc.Language = CoreLocalization.Language.English;
+            Assert.Equal("Installation", progress.Title);
+            Assert.Contains("writes nothing", progress.Explanation, StringComparison.Ordinal);
+            Assert.Equal("Done", done.Title);
+            Assert.Contains("installation result", done.Explanation, StringComparison.Ordinal);
+        }
+        finally
+        {
+            loc.Language = CoreLocalization.Language.Russian;
+        }
     }
 }

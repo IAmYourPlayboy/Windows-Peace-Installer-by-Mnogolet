@@ -1,5 +1,6 @@
 using System;
 using WindowsPeace.Setup.Shell;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -11,12 +12,9 @@ namespace WindowsPeace.Setup.Pages;
 /// </summary>
 public sealed class ProgressViewModel : IWizardPage
 {
-    public string Title => "Установка";
+    public string Title => CoreLocalization.Localization.Current[CoreLocalization.Keys.Progress.Title];
 
-    public string Explanation =>
-        "Здесь пойдёт разметка диска, распаковка Windows, установка драйверов и загрузчика. " +
-        "Это появится на следующем шаге работы над программой. " +
-        "Сейчас мастер ничего не записывает на диск.";
+    public string Explanation => CoreLocalization.Localization.Current[CoreLocalization.Keys.Progress.Explanation];
 
     public bool CanGoNext => true;
 

@@ -36,4 +36,16 @@ public static class Keys
         public const string Wipe = "confirm.wipe";
         public const string LostChoice = "confirm.lostChoice";
     }
+
+    public static class Progress
+    {
+        public const string Title = "progress.title";
+        public const string Explanation = "progress.explanation";
+    }
+
+    public static class Done
+    {
+        public const string Title = "done.title";
+        public const string Explanation = "done.explanation";
+    }
 }

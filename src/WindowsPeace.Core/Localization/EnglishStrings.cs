@@ -38,5 +38,16 @@ public sealed class EnglishStrings : ILanguagePack
             "The disk will be repartitioned. Everything on it will be lost permanently.",
         [Keys.Confirm.LostChoice] =
             "The selection was lost: go back and choose what to install and where.",
+
+        [Keys.Progress.Title] = "Installation",
+        [Keys.Progress.Explanation] =
+            "This is where partitioning, Windows extraction, driver and bootloader install will run. " +
+            "It arrives in the next step of the program's development. " +
+            "For now the wizard writes nothing to disk.",
+
+        [Keys.Done.Title] = "Done",
+        [Keys.Done.Explanation] =
+            "This will show the installation result and a restart button. " +
+            "It arrives in the next step of the program's development.",
     };
 }

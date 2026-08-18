@@ -1,5 +1,6 @@
 using System;
 using WindowsPeace.Setup.Shell;
+using CoreLocalization = WindowsPeace.Core.Localization;
 
 namespace WindowsPeace.Setup.Pages;
 
@@ -12,11 +13,9 @@ namespace WindowsPeace.Setup.Pages;
 /// </summary>
 public sealed class DoneViewModel : IWizardPage
 {
-    public string Title => "Готово";
+    public string Title => CoreLocalization.Localization.Current[CoreLocalization.Keys.Done.Title];
 
-    public string Explanation =>
-        "Здесь будет итог установки и кнопка перезагрузки. " +
-        "Это появится на следующем шаге работы над программой.";
+    public string Explanation => CoreLocalization.Localization.Current[CoreLocalization.Keys.Done.Explanation];
 
     public bool CanGoNext => false;
 
