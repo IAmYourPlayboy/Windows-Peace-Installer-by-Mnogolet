@@ -34,6 +34,16 @@ param(
     # 32 МБ — этого мало всему, что пишет на диск само приложение.
     [uint32] $ScratchSpaceMb = 512,
 
+    # Папка с драйверами Microsoft, вытащенными из install.wim
+    # (Harvest-MediaDrivers.ps1). Вкладываются в образ, чтобы в WinPE завелось
+    # железо, которого нет в урезанном наборе boot.wim: шины I2C, тачпады, диски.
+    # Драйверы — собственные подписанные Microsoft, из того же установочного
+    # носителя, а не скачанные со стороны.
+    [string] $DriversPath = 'D:\WindowsPeace-Drivers',
+
+    # Собрать образ без драйверов (быстрее; для правок, где железо не важно).
+    [switch] $NoDrivers,
+
     [switch] $Restore
 )
 
@@ -85,6 +95,35 @@ try {
     foreach ($name in @('winpeshl.ini', 'peace-launch.cmd')) {
         Copy-Item (Join-Path $PSScriptRoot $name) (Join-Path $system32 $name) -Force
         Write-Host "Положено в образ: $name"
+    }
+
+    # Драйверы Microsoft из install.wim. WinPE несёт лишь часть набора Windows;
+    # недостающее (шины I2C для тачпадов, контроллеры дисков) лежит в install.wim
+    # на нашем же носителе. Вкладываем его сюда — тогда в WinPE заводится то же
+    # железо, что и в полной системе. PnP при загрузке берёт только подходящее,
+    # лишнее просто лежит. См. Harvest-MediaDrivers.ps1.
+    $infs = if (Test-Path $DriversPath) {
+        @(Get-ChildItem -Path $DriversPath -Recurse -Filter *.inf -ErrorAction SilentlyContinue)
+    } else { @() }
+
+    if ($NoDrivers) {
+        Write-Host 'Драйверы пропущены (-NoDrivers).'
+    }
+    elseif ($infs.Count -eq 0) {
+        Write-Warning "Драйверов нет в '$DriversPath'. Сначала запусти Harvest-MediaDrivers.ps1, либо собери с -NoDrivers."
+    }
+    else {
+        Write-Host "Вкладываю драйверы Microsoft ($($infs.Count) шт.) из $DriversPath ..."
+        dism /English /Image:$MountPath /Add-Driver /Driver:$DriversPath /Recurse | Out-Null
+        # Часть драйверов может не встать (уже есть в образе, зависимость) — это
+        # не повод бросать всю сборку: важные встают, а остаток PnP игнорирует.
+        # Полный разбор — в %WINDIR%\Logs\DISM\dism.log.
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Add-Driver вернул $LASTEXITCODE — часть драйверов могла не встать (см. dism.log). Образ собран с тем, что встало."
+        }
+        else {
+            Write-Host 'Драйверы вложены.'
+        }
     }
 
     dism /English /Image:$MountPath /Set-ScratchSpace:$ScratchSpaceMb | Out-Null
